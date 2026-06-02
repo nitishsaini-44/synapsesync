@@ -7,7 +7,7 @@
 ![Tailwind](https://img.shields.io/badge/Tailwind-3.0-38B2AC?logo=tailwind-css&logoColor=white)
 ![n8n](https://img.shields.io/badge/n8n-Cloud-ff6600?logo=n8n&logoColor=white)
 
-A full-stack, production-ready AI platform that automates operational tasks such as email summarization, lead classification, and AI-generated replies using the **OpenAI API (gpt-4o-mini)**.
+A full-stack, production-ready AI platform that automates operational tasks such as email summarization, lead classification, and AI-generated replies using the **OpenAI API (gpt-4o-mini)/Groq API (llama-3.1-8b-instant)**.
 
 ---
 
