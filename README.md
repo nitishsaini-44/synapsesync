@@ -121,28 +121,143 @@ gunicorn backend.app:app
 
 ---
 
-## ⚙️ n8n Automation Setup
+## ⚙️ n8n Workflow Setup (Step-by-Step)
 
-### Workflow: Gmail → SynapseSync → Discord
+SynapseSync uses **two n8n workflows** working together. Follow these steps carefully to set them up.
 
-1. **Node 1: Gmail Trigger**
-   - Event: `On message received`
-   - Poll Mode: `Every Minute`
+### Prerequisites
 
-2. **Node 2: HTTP Request**
-   - Method: `POST`
-   - URL: `https://your-render-url.onrender.com/api/webhook/email_lead`
-   - Headers: `X-API-Key: your_app_api_key`
-   - Body (JSON):
+- Create a free account at [n8n.cloud](https://n8n.cloud)
+- Have your **Render backend URL** ready (e.g. `https://your-app.onrender.com`)
+- Have a **Discord server** with a channel where you want to receive alerts
+
+---
+
+### Workflow 1: Gmail → SynapseSync (Email Ingestion)
+
+This workflow automatically reads new emails from Gmail and sends them to your backend for AI classification.
+
+#### Step 1: Create a New Workflow
+- In your n8n dashboard, click **"Add workflow"**
+- Name it: `Gmail Email Ingestion`
+
+#### Step 2: Add Gmail Trigger Node
+1. Click the **`+`** button to add a new node
+2. Search for **"Gmail"** → Under **Triggers**, select **"On message received"**
+3. Click **"Credential"** → Connect your Google account
+   - When Google asks for permissions, check **"Select all"** and click **Allow**
+4. Configure the node:
+   - **Poll Times → Mode:** `Every Minute`
+   - **Event:** `Message Received`
+   - **Simplify:** `ON` (toggle enabled)
+   - **Max Emails per Poll:** `10`
+5. Click **"Fetch Test Event"** to pull a sample email — you should see email data appear in the OUTPUT panel
+
+#### Step 3: Add HTTP Request Node
+1. Click the **`+`** button on the Gmail node's output wire
+2. Search for and select **"HTTP Request"**
+3. Configure the node:
+
+   | Setting | Value |
+   | :--- | :--- |
+   | **Method** | `POST` |
+   | **URL** | `https://your-render-url.onrender.com/api/webhook/email_lead` |
+
+4. **Headers Setup:**
+   - Toggle **"Send Headers"** → `ON`
+   - **Specify Headers:** `Using Fields Below`
+   - Click **"Add Header"**
+     - **Name:** `X-API-Key`
+     - **Value:** *(the value of your `APP_API_KEY` env variable on Render)*
+
+5. **Body Setup:**
+   - Toggle **"Send Body"** → `ON`
+   - **Body Content Type:** `JSON`
+   - **Specify Body:** `Using JSON`
+   - **JSON:**
      ```json
      {
        "message": "{{ $json.snippet }}"
      }
      ```
+   - You should see a preview below the JSON box showing the actual email snippet
 
-3. **Publish** the workflow to make it active 24/7.
+6. Click **"Execute step"** to test — you should see `"Email classified successfully"` in the output
 
-The backend will automatically classify the email, save it to PostgreSQL, and trigger your n8n Discord webhook to send an alert.
+#### Step 4: Activate the Workflow
+- Click **"Publish"** (top right corner)
+- The workflow is now **live** — every new Gmail message will be automatically ingested, classified, and stored!
+
+---
+
+### Workflow 2: SynapseSync → Discord (Alert Notifications)
+
+This workflow receives classified lead data from your backend and sends a formatted message to your Discord channel.
+
+#### Step 1: Create a New Workflow
+- Create another new workflow in n8n
+- Name it: `Discord Lead Alerts`
+
+#### Step 2: Add Webhook Node
+1. Click **`+`** → Search for **"Webhook"** → Select it
+2. Configure the node:
+
+   | Setting | Value |
+   | :--- | :--- |
+   | **HTTP Method** | `POST` |
+   | **Path** | `lead` |
+   | **Respond** | `Immediately` |
+
+3. **Important:** Click **"Production URL"** tab and copy that URL — this is the base URL you set as `N8N_WEBHOOK_URL` on Render
+   - The full production URL will look like: `https://your-instance.app.n8n.cloud/webhook/lead`
+   - On Render, set `N8N_WEBHOOK_URL` to just the base: `https://your-instance.app.n8n.cloud`
+
+#### Step 3: Add Discord Node
+1. Click **`+`** on the Webhook node's output wire
+2. Search for **"Discord"** → Select **"Send a Message"**
+3. Connect your Discord bot or use **"Discord Webhook"** instead:
+   - Go to your Discord server → Channel Settings → Integrations → **Webhooks** → Create Webhook
+   - Copy the Webhook URL and paste it in n8n
+4. **Message Content** — Use an expression to format the lead data:
+   ```
+   🚨 **New Lead Classified!**
+
+   📧 **Message:** {{ $json.body.message }}
+   📂 **Category:** {{ $json.body.category }}
+   ⚡ **Urgency:** {{ $json.body.urgency }}
+   📝 **Summary:** {{ $json.body.summary }}
+   🆔 **Lead ID:** {{ $json.body.id }}
+   ```
+
+#### Step 4: Activate the Workflow
+- Click **"Publish"** to make it live
+- Now every time your backend classifies an email, Discord will instantly ping you!
+
+---
+
+### 🔄 Complete Automated Flow
+
+Once both workflows are published and active:
+
+```
+📧 New email arrives in Gmail
+        ↓
+⚡ n8n Workflow 1 reads it (every minute)
+        ↓
+🌐 POST → /api/webhook/email_lead (Render)
+        ↓
+🤖 Groq AI classifies: category + urgency + summary
+        ↓
+💾 Saved to Aiven PostgreSQL
+        ↓
+📡 Backend triggers n8n Workflow 2
+        ↓
+🔔 Discord notification sent instantly
+        ↓
+📊 Lead visible on React Dashboard (Vercel)
+```
+
+> **💡 Tip:** Render's free tier puts your server to sleep after 15 minutes of inactivity. The first email after a sleep period may take ~30 seconds to process while the server wakes up. Subsequent emails are instant.
 
 ---
 
