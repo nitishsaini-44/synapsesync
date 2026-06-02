@@ -1,0 +1,102 @@
+{
+  "name": "AI Lead Processing Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead",
+        "options": {}
+      },
+      "id": "e1f2g3h4",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "test-webhook-id-123"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json[\"body\"][\"urgency\"]}}",
+              "value2": "high"
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4",
+      "name": "Urgency Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "webhookUri": "={{ $env.DISCORD_WEBHOOK_URL }}",
+        "text": "=🚨 **URGENT LEAD DETECTED** 🚨\n\n**Category:** {{$json[\"body\"][\"category\"]}}\n**Summary:** {{$json[\"body\"][\"summary\"]}}\n\n*Original Message:*\n\"{{$json[\"body\"][\"message\"]}}\"",
+        "options": {}
+      },
+      "id": "x1y2z3w4",
+      "name": "Discord Alert",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [
+        750,
+        150
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "m1n2o3p4",
+      "name": "Log to Console",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        750,
+        450
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Urgency Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Urgency Check": {
+      "main": [
+        [
+          {
+            "node": "Discord Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log to Console",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "v1.0.0"
+}
