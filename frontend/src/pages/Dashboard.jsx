@@ -44,12 +44,12 @@ const Dashboard = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div>
-        <h2 className="text-2xl font-bold text-slate-100">Analytics Overview</h2>
-        <p className="text-slate-400">Track your AI automated workflow performance.</p>
+        <h2 className="text-xl md:text-2xl font-bold text-slate-100">Analytics Overview</h2>
+        <p className="text-sm md:text-base text-slate-400">Track your AI automated workflow performance.</p>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
         <StatCard title="Total Processed" value={stats.total_processed} icon={<Activity size={24} />} color="primary" />
         <StatCard title="Urgent Requests" value={stats.urgent_count} icon={<AlertTriangle size={24} />} color="danger" />
         <StatCard title="Sales Leads" value={stats.sales_count} icon={<Briefcase size={24} />} color="success" />

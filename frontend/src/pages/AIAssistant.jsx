@@ -50,13 +50,13 @@ const AIAssistant = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
+    <div className="max-w-4xl mx-auto space-y-6 md:space-y-8 animate-in fade-in duration-500">
       <div>
-        <h2 className="text-2xl font-bold text-slate-100">AI Assistant</h2>
-        <p className="text-slate-400">Process emails and messages with GPT-4o-mini.</p>
+        <h2 className="text-xl md:text-2xl font-bold text-slate-100">AI Assistant</h2>
+        <p className="text-sm md:text-base text-slate-400">Process emails and messages with GPT-4o-mini.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
         {/* Input Section */}
         <div className="space-y-4">
           <div className="bg-dark-surface rounded-xl border border-slate-700/50 shadow-sm overflow-hidden focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/50 transition-all">
@@ -64,7 +64,7 @@ const AIAssistant = () => {
               Input Message
             </div>
             <textarea
-              className="w-full h-64 bg-transparent text-slate-200 p-4 outline-none resize-none placeholder-slate-500"
+              className="w-full h-40 md:h-64 bg-transparent text-slate-200 p-3 md:p-4 outline-none resize-none placeholder-slate-500 text-sm md:text-base"
               placeholder="Paste an email, customer query, or message here..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -74,36 +74,36 @@ const AIAssistant = () => {
           {error && <div className="text-danger text-sm">{error}</div>}
 
           <div className="grid grid-cols-1 gap-3">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2 md:gap-3">
               <button
                 onClick={() => handleAction('summarize')}
                 disabled={loadingAction !== null}
-                className="flex flex-col items-center justify-center p-3 rounded-xl bg-dark-surface border border-slate-700 hover:border-primary/50 hover:bg-primary/10 transition-all group disabled:opacity-50"
+                className="flex flex-col items-center justify-center p-2.5 md:p-3 rounded-xl bg-dark-surface border border-slate-700 hover:border-primary/50 hover:bg-primary/10 transition-all group disabled:opacity-50"
               >
-                <MessageSquare className="text-slate-400 group-hover:text-primary mb-2" size={20} />
-                <span className="text-sm font-medium text-slate-300 group-hover:text-primary">Summarize</span>
+                <MessageSquare className="text-slate-400 group-hover:text-primary mb-1 md:mb-2" size={18} />
+                <span className="text-xs md:text-sm font-medium text-slate-300 group-hover:text-primary">Summarize</span>
               </button>
               <button
                 onClick={() => handleAction('classify')}
                 disabled={loadingAction !== null}
-                className="flex flex-col items-center justify-center p-3 rounded-xl bg-dark-surface border border-slate-700 hover:border-primary/50 hover:bg-primary/10 transition-all group disabled:opacity-50"
+                className="flex flex-col items-center justify-center p-2.5 md:p-3 rounded-xl bg-dark-surface border border-slate-700 hover:border-primary/50 hover:bg-primary/10 transition-all group disabled:opacity-50"
               >
-                <Tags className="text-slate-400 group-hover:text-primary mb-2" size={20} />
-                <span className="text-sm font-medium text-slate-300 group-hover:text-primary">Classify</span>
+                <Tags className="text-slate-400 group-hover:text-primary mb-1 md:mb-2" size={18} />
+                <span className="text-xs md:text-sm font-medium text-slate-300 group-hover:text-primary">Classify</span>
               </button>
               <button
                 onClick={() => handleAction('reply')}
                 disabled={loadingAction !== null}
-                className="flex flex-col items-center justify-center p-3 rounded-xl bg-dark-surface border border-slate-700 hover:border-primary/50 hover:bg-primary/10 transition-all group disabled:opacity-50"
+                className="flex flex-col items-center justify-center p-2.5 md:p-3 rounded-xl bg-dark-surface border border-slate-700 hover:border-primary/50 hover:bg-primary/10 transition-all group disabled:opacity-50"
               >
-                <Sparkles className="text-slate-400 group-hover:text-primary mb-2" size={20} />
-                <span className="text-sm font-medium text-slate-300 group-hover:text-primary">Auto-Reply</span>
+                <Sparkles className="text-slate-400 group-hover:text-primary mb-1 md:mb-2" size={18} />
+                <span className="text-xs md:text-sm font-medium text-slate-300 group-hover:text-primary">Auto-Reply</span>
               </button>
             </div>
             <button
               onClick={() => handleAction('discord')}
               disabled={loadingAction !== null}
-              className="flex items-center justify-center py-3 px-4 w-full rounded-xl bg-[#5865F2] text-white hover:bg-[#4752C4] shadow-lg shadow-[#5865F2]/20 transition-all disabled:opacity-50 mt-2"
+              className="flex items-center justify-center py-2.5 md:py-3 px-4 w-full rounded-xl bg-[#5865F2] text-white hover:bg-[#4752C4] shadow-lg shadow-[#5865F2]/20 transition-all disabled:opacity-50 mt-2 text-sm md:text-base"
             >
               <Send className="mr-2" size={18} />
               <span className="font-medium">Send Full Workflow to Discord</span>
@@ -112,7 +112,7 @@ const AIAssistant = () => {
         </div>
 
         {/* Results Section */}
-        <div className="bg-dark-surface rounded-xl border border-slate-700/50 shadow-sm p-6 flex flex-col min-h-[400px]">
+        <div className="bg-dark-surface rounded-xl border border-slate-700/50 shadow-sm p-4 md:p-6 flex flex-col min-h-[300px] md:min-h-[400px]">
           <h3 className="text-lg font-semibold text-slate-200 mb-6 border-b border-slate-700/50 pb-4">AI Output</h3>
           
           <div className="flex-1">

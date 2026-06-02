@@ -24,8 +24,8 @@ const MainLayout = ({ children }) => {
       {/* Sidebar Navigation */}
       <Navbar />
       
-      {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto bg-dark-bg p-8">
+      {/* Main Content Area — pt-14 offsets the fixed mobile top bar */}
+      <main className="flex-1 overflow-y-auto bg-dark-bg pt-14 md:pt-0 p-4 md:p-8">
         <div className="max-w-6xl mx-auto">
           {children}
         </div>

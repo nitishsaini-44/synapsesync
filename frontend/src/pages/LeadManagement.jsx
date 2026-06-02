@@ -31,8 +31,8 @@ const LeadManagement = () => {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-100">Lead Management</h2>
-          <p className="text-slate-400">View and filter all processed leads.</p>
+          <h2 className="text-xl md:text-2xl font-bold text-slate-100">Lead Management</h2>
+          <p className="text-sm md:text-base text-slate-400">View and filter all processed leads.</p>
         </div>
         
         {/* Filters */}
@@ -42,7 +42,7 @@ const LeadManagement = () => {
             <button
               key={cat}
               onClick={() => setFilter(cat)}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium capitalize transition-all whitespace-nowrap ${
+              className={`px-3 md:px-4 py-1.5 rounded-md text-xs md:text-sm font-medium capitalize transition-all whitespace-nowrap ${
                 filter === cat 
                   ? 'bg-primary text-white shadow-md' 
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
@@ -65,7 +65,7 @@ const LeadManagement = () => {
       ) : (
         <div className="grid grid-cols-1 gap-4">
           {leads.map((lead) => (
-            <div key={lead.id} className="bg-dark-surface rounded-xl border border-slate-700/50 p-6 shadow-sm hover:border-slate-600 transition-colors">
+            <div key={lead.id} className="bg-dark-surface rounded-xl border border-slate-700/50 p-4 md:p-6 shadow-sm hover:border-slate-600 transition-colors">
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div className="flex-1 space-y-3">
                   <div className="flex flex-wrap items-center gap-3">
