@@ -53,7 +53,7 @@ const AIAssistant = () => {
     <div className="max-w-4xl mx-auto space-y-6 md:space-y-8 animate-in fade-in duration-500">
       <div>
         <h2 className="text-xl md:text-2xl font-bold text-slate-100">AI Assistant</h2>
-        <p className="text-sm md:text-base text-slate-400">Process emails and messages with GPT-4o-mini.</p>
+        <p className="text-sm md:text-base text-slate-400">Process emails and messages with AI.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
