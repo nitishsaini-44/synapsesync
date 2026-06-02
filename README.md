@@ -1,142 +1,249 @@
-# SynapseSync 🚀
+# SynapseSync 🧠⚡
 
-![Python](https://img.shields.io/badge/Python-3.14-blue?logo=python&logoColor=white)
-![React](https://img.shields.io/badge/React-18-blue?logo=react&logoColor=white)
-![Flask](https://img.shields.io/badge/Flask-3.1-black?logo=flask&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Aiven-blue?logo=postgresql&logoColor=white)
-![Tailwind](https://img.shields.io/badge/Tailwind-3.0-38B2AC?logo=tailwind-css&logoColor=white)
-![n8n](https://img.shields.io/badge/n8n-Cloud-ff6600?logo=n8n&logoColor=white)
+> **A fully automated, AI-powered email triage and lead management platform — live in the cloud.**
 
-A full-stack, production-ready AI platform that automates operational tasks such as email summarization, lead classification, and AI-generated replies using the **OpenAI API (gpt-4o-mini)/Groq API (llama-3.1-8b-instant)**.
+SynapseSync automatically reads your Gmail, classifies each email using **Groq AI** (powered by Meta's LLaMA 3.1), saves it to a cloud PostgreSQL database, sends an instant Discord notification, and displays everything on a beautiful React dashboard — **with zero manual effort.**
+
+[![Live Backend](https://img.shields.io/badge/Backend-Render-46E3B7?logo=render)](https://ai-workflow-automation-platform-wfj5.onrender.com)
+[![Repo](https://img.shields.io/badge/GitHub-Repository-181717?logo=github)](https://github.com/nitishsaini-44/AI-Workflow-Automation-Platform)
 
 ---
 
-## 🌟 Overview
-
-The SynapseSync platform is designed to streamline business operations by automatically reading incoming emails (via n8n Cloud), categorizing leads, and generating professional responses. It integrates a Flask backend with a React frontend, uses an online PostgreSQL database, and utilizes n8n Cloud for bidirectional workflow automation (e.g., Discord alerts for urgent leads).
-
 ## ✨ Features
 
-- **📧 Automated Email Ingestion**: Automatically reads your incoming Gmail emails via n8n and pushes them to your dashboard securely via an API Key.
-- **🔐 Multi-Tenant User Authentication**: Full user registration and JWT-based login system so every user gets their own private dashboard and leads.
-- **🏷️ AI Lead Classification**: Categorizes incoming queries into `Urgent`, `Sales`, `Support`, or `Spam`.
-- **💬 AI Auto-Replies**: Generates context-aware, polite, and professional customer support responses.
-- **📊 Analytics Dashboard**: Tracks processed workflows, category distributions, and recent AI activities.
-- **🤖 Workflow Automation**: Integrates with n8n Cloud to send real-time Discord notifications when a lead is classified.
+- 🤖 **AI Email Classification** — Groq AI (LLaMA 3.1-8b-instant) auto-classifies every email into: `urgent`, `sales`, `support`, or `spam`
+- 📬 **Fully Automated Gmail Ingestion** — n8n Cloud reads your Gmail every minute and sends emails to the backend automatically
+- 🔔 **Instant Discord Alerts** — Every classified lead triggers a real-time notification to your Discord server via n8n
+- 💾 **Cloud PostgreSQL Storage** — All leads are stored persistently in an Aiven-hosted PostgreSQL database
+- 📊 **Analytics Dashboard** — Visual charts and stats for your lead categories and urgency levels
+- 🔐 **JWT Authentication** — Secure login/register system with bcrypt password hashing
+- 🌍 **Fully Cloud-Deployed** — Backend on Render, Frontend on Vercel, DB on Aiven, Automation on n8n Cloud
 
 ---
 
 ## 🏗️ Architecture
 
-The system follows a modern microservices architecture running natively on your local machine and connecting to cloud services.
-
-```mermaid
-flowchart LR
-    A[React Frontend] -->|REST API (JWT)| B[Flask Backend]
-    B -->|psycopg3| C[(Aiven PostgreSQL Cloud)]
-    B -->|API Calls| D[OpenAI API]
-    B -->|Webhook| E[n8n Cloud]
-    E -->|Alert| F[Discord]
-    G[Incoming Gmail] -->|IMAP| E
-    E -->|API Key Webhook| B
 ```
+Gmail Inbox
+    │
+    ▼ (every minute)
+n8n Cloud (Gmail Trigger)
+    │
+    ▼ POST /api/webhook/email_lead
+    │   Header: X-API-Key
+Flask Backend (Render)
+    │
+    ├──▶ Groq AI API (LLaMA 3.1-8b-instant) ──▶ Classifies email
+    │
+    ├──▶ Aiven PostgreSQL ──▶ Stores lead
+    │
+    └──▶ n8n Webhook (/webhook/lead) ──▶ Discord Notification
+    
+React Dashboard (Vercel)
+    │
+    └──▶ Flask REST API (JWT Protected) ──▶ Display leads & analytics
+```
+
+---
 
 ## 🛠️ Tech Stack
 
-| Layer | Technology | Purpose |
-|-------|------------|---------|
-| **Frontend** | React, Vite, Tailwind CSS, Recharts | Fast, responsive, dark-mode UI and analytics charts. |
-| **Backend** | Python 3.14, Flask, psycopg3 | High-performance REST API handling business logic and auth. |
-| **AI/ML** | OpenAI API (`gpt-4o-mini`) | Advanced text classification, summarization, and generation. |
-| **Database** | Aiven PostgreSQL Cloud | Persistent storage for users, leads, and analytics. |
-| **Automation**| n8n Cloud | Visual node-based workflow execution (Gmail -> API -> Discord). |
+| Layer | Technology |
+| :--- | :--- |
+| **Frontend** | React 19, Vite, TailwindCSS, Recharts, React Router v7 |
+| **Backend** | Python, Flask 3.1, Gunicorn |
+| **AI Engine** | **Groq API** (OpenAI-compatible SDK → LLaMA 3.1-8b-instant) |
+| **Database** | PostgreSQL (Aiven Cloud) via `psycopg` v3 |
+| **Automation** | n8n Cloud (Gmail Trigger → HTTP Request) |
+| **Notifications** | Discord Webhooks via n8n |
+| **Auth** | JWT (`PyJWT`) + Bcrypt password hashing |
+| **Deployment** | Render (backend), Vercel (frontend) |
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Deployment
 
-### Prerequisites
+### Backend — Render
 
-- [Node.js](https://nodejs.org/) (for frontend development)
-- [Python 3.14](https://www.python.org/)
-- An [OpenAI API Key](https://platform.openai.com/api-keys)
-- An [Aiven PostgreSQL Database](https://aiven.io/)
-- An [n8n Cloud Account](https://n8n.cloud/)
+**Build Command:**
+```
+pip install -r backend/requirements.txt
+```
 
-### 1. Backend Configuration
+**Start Command:**
+```
+gunicorn backend.app:app
+```
+
+**Root Directory:** *(leave blank — deploy from repo root)*
+
+#### Required Environment Variables on Render:
+
+| Variable | Description |
+| :--- | :--- |
+| `FLASK_ENV` | `production` |
+| `SECRET_KEY` | A long random string for JWT encryption |
+| `GROQ_API_KEY` | Your Groq API key from [console.groq.com](https://console.groq.com) |
+| `POSTGRES_HOST` | Aiven database host |
+| `POSTGRES_PORT` | Aiven database port (e.g. `25060`) |
+| `POSTGRES_DB` | Database name (e.g. `defaultdb`) |
+| `POSTGRES_USER` | Database user (e.g. `avnadmin`) |
+| `POSTGRES_PASSWORD` | Database password |
+| `POSTGRES_SSLMODE` | `require` |
+| `N8N_WEBHOOK_URL` | Your n8n Cloud instance base URL |
+| `APP_API_KEY` | Secret key for n8n → backend webhook auth |
+| `ADMIN_USER_EMAIL` | The email you registered on the dashboard |
+
+---
+
+### Frontend — Vercel
+
+1. Import GitHub repository into Vercel
+2. Set **Root Directory** to `frontend`
+3. **Framework:** Vite (auto-detected)
+4. Add Environment Variable:
+
+| Variable | Value |
+| :--- | :--- |
+| `VITE_API_URL` | `https://your-render-url.onrender.com/api` |
+
+---
+
+## ⚙️ n8n Automation Setup
+
+### Workflow: Gmail → SynapseSync → Discord
+
+1. **Node 1: Gmail Trigger**
+   - Event: `On message received`
+   - Poll Mode: `Every Minute`
+
+2. **Node 2: HTTP Request**
+   - Method: `POST`
+   - URL: `https://your-render-url.onrender.com/api/webhook/email_lead`
+   - Headers: `X-API-Key: your_app_api_key`
+   - Body (JSON):
+     ```json
+     {
+       "message": "{{ $json.snippet }}"
+     }
+     ```
+
+3. **Publish** the workflow to make it active 24/7.
+
+The backend will automatically classify the email, save it to PostgreSQL, and trigger your n8n Discord webhook to send an alert.
+
+---
+
+## 📁 Project Structure
+
+```
+SynapseSync/
+├── backend/
+│   ├── app.py                  # Flask app factory
+│   ├── config.py               # Environment variable config
+│   ├── requirements.txt        # Python dependencies
+│   ├── Dockerfile              # Docker config (for local use)
+│   ├── database/
+│   │   └── db.py               # PostgreSQL connection & queries
+│   ├── routes/
+│   │   ├── auth.py             # /api/auth/login, /register
+│   │   ├── classify.py         # /api/classify, /api/webhook/email_lead
+│   │   ├── summarize.py        # /api/summarize
+│   │   ├── reply.py            # /api/generate-reply
+│   │   ├── leads.py            # /api/leads
+│   │   ├── analytics.py        # /api/analytics
+│   │   └── notify.py           # /api/notify/discord, /api/notify/full_workflow
+│   ├── services/
+│   │   ├── openai_service.py   # Groq AI client (classify, summarize, reply)
+│   │   ├── discord_service.py  # Discord webhook sender
+│   │   └── analytics_service.py
+│   └── utils/
+│       └── auth_middleware.py  # JWT & API Key decorators
+│
+├── frontend/
+│   ├── index.html
+│   ├── vercel.json             # SPA routing config for Vercel
+│   ├── vite.config.js
+│   └── src/
+│       ├── api/
+│       │   └── client.js       # Axios client (uses VITE_API_URL)
+│       ├── components/
+│       │   └── Navbar.jsx
+│       └── pages/
+│           ├── Login.jsx
+│           ├── Register.jsx
+│           └── Dashboard.jsx
+│
+├── .gitignore
+├── docker-compose.yml          # For local PostgreSQL development
+└── README.md
+```
+
+---
+
+## 🔌 API Endpoints
+
+| Method | Endpoint | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/auth/register` | None | Register new user |
+| `POST` | `/api/auth/login` | None | Login, returns JWT |
+| `POST` | `/api/classify` | JWT | Manually classify a message |
+| `POST` | `/api/webhook/email_lead` | API Key | n8n sends emails here |
+| `POST` | `/api/summarize` | JWT | Summarize a message |
+| `POST` | `/api/generate-reply` | JWT | Generate AI reply |
+| `GET` | `/api/leads` | JWT | Fetch all leads |
+| `GET` | `/api/analytics` | JWT | Get analytics data |
+| `POST` | `/api/notify/full_workflow` | JWT | Run full AI pipeline + Discord |
+| `GET` | `/health` | None | Health check |
+
+---
+
+## 🤖 AI Engine — Groq + LLaMA 3.1
+
+SynapseSync uses the **Groq API** with the `openai` Python SDK pointed at Groq's base URL. This gives you:
+- ⚡ **Ultra-fast inference** (Groq's custom LPU hardware)
+- 💰 **Generous free tier** — no credit card needed to get started
+- 🧠 **Model:** `llama-3.1-8b-instant` — optimized for structured JSON output
+
+Get your free API key at: **[console.groq.com](https://console.groq.com)**
+
+---
+
+## 🔒 Security
+
+- All dashboard API routes are protected with **JWT Bearer tokens** (24-hour expiry)
+- The n8n webhook endpoint (`/api/webhook/email_lead`) uses a separate **API Key** header (`X-API-Key`) to prevent unauthorized access
+- Passwords are hashed using **bcrypt** before storage
+- Database connections use **SSL (`sslmode=require`)** enforced by Aiven
+
+---
+
+## 📦 Local Development
 
 ```bash
-# Create a virtual environment
+# Clone
+git clone https://github.com/nitishsaini-44/AI-Workflow-Automation-Platform.git
+cd AI-Workflow-Automation-Platform
+
+# Backend
 python -m venv venv
-.\venv\Scripts\activate
+venv\Scripts\activate       # Windows
+pip install -r backend/requirements.txt
 
-# Install dependencies (using pure-python psycopg3)
-pip install -r backend\requirements.txt
-```
+# Copy and fill in your environment variables
+cp .env.example .env
 
-Edit your `.env` file in the root directory:
-```env
-OPENAI_API_KEY=your_openai_key
-POSTGRES_USER=your_aiven_user
-POSTGRES_PASSWORD=your_aiven_password
-POSTGRES_HOST=your_aiven_host
-POSTGRES_PORT=your_aiven_port
-POSTGRES_DB=defaultdb
-N8N_WEBHOOK_URL=https://your-instance.app.n8n.cloud
-DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
-APP_API_KEY=your_secure_api_key
-ADMIN_USER_EMAIL=your_dashboard_login_email@gmail.com
-```
-
-### 2. Start the Backend
-
-```bash
+# Run backend
 python -m backend.app
-```
-The backend will automatically initialize your database tables on the first run and host the API on `http://localhost:5000`.
 
-### 3. Start the Frontend
-
-In a separate terminal:
-```bash
+# Frontend (new terminal)
 cd frontend
+npm install
 npm run dev
 ```
-Access the dashboard at `http://localhost:5173`. Create an account and start managing your leads!
 
 ---
-
-## 🔌 API Reference
-
-| Method | Endpoint | Auth Required | Description |
-|--------|----------|---------------|-------------|
-| `POST` | `/api/auth/register` | No | Registers a new user account |
-| `POST` | `/api/auth/login` | No | Authenticates user and returns JWT |
-| `GET`  | `/api/leads` | JWT | Fetches processed leads for the logged-in user |
-| `GET`  | `/api/analytics` | JWT | Returns dashboard statistics |
-| `POST` | `/api/classify` | JWT | Manually classifies a lead via the UI & triggers Discord |
-| `POST` | `/api/webhook/email_lead` | API Key | Used by n8n to automatically submit incoming Gmails |
-
----
-
-## ⚙️ n8n Cloud Setup
-
-The platform uses n8n Cloud for two primary automations:
-
-### 1. Sending Discord Alerts
-1. Create a **Webhook Node** in n8n listening for `POST` requests at `/webhook/lead`.
-2. Connect it to a **Discord Node**.
-3. Map the incoming variables (`category`, `urgency`, `summary`) into the Discord message body.
-4. Set the workflow to Active.
-
-### 2. Fully Automated Email Ingestion
-1. Create a **Gmail Trigger Node** listening for new unread messages.
-2. Connect it to an **HTTP Request Node**.
-3. Set the HTTP node to `POST` to your local backend (using Ngrok): `http://<your-ngrok-url>/api/webhook/email_lead`.
-4. Add the `X-API-Key` header with your `APP_API_KEY`.
-5. Map the email snippet to the `message` JSON body.
-6. Set the workflow to Active. Every email you receive will automatically appear on your dashboard!
 
 ## 📄 License
 
-MIT License. See `LICENSE` for more information.
+MIT License — feel free to fork and build on top of SynapseSync!
