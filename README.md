@@ -37,27 +37,6 @@ SynapseSync automatically reads your Gmail, classifies each email using **Groq A
 
 ![Architecture Diagram](screenshots/workflow.png)
 
-```
-Gmail Inbox
-    │
-    ▼ (every minute)
-n8n Cloud (Gmail Trigger)
-    │
-    ▼ POST /api/webhook/email_lead
-    │   Header: X-API-Key
-Flask Backend (Render)
-    │
-    ├──▶ Groq AI API (LLaMA 3.1-8b-instant) ──▶ Classifies email
-    │
-    ├──▶ Aiven PostgreSQL ──▶ Stores lead
-    │
-    └──▶ n8n Webhook (/webhook/lead) ──▶ Discord Notification
-    
-React Dashboard (Vercel)
-    │
-    └──▶ Flask REST API (JWT Protected) ──▶ Display leads & analytics
-```
-
 ---
 
 ## 🛠️ Tech Stack
