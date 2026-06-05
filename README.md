@@ -35,6 +35,8 @@ SynapseSync automatically reads your Gmail, classifies each email using **Groq A
 
 ## 🏗️ Architecture
 
+![Architecture Diagram](screenshots/workflow.png)
+
 ```
 Gmail Inbox
     │
