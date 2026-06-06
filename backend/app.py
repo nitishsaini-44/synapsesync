@@ -31,6 +31,8 @@ def create_app():
     # Initialize Database
     with app.app_context():
         init_db()
+        from backend.database.db import close_pool
+        close_pool()
 
     @app.route('/health')
     def health_check():

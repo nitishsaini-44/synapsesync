@@ -31,6 +31,12 @@ def release_connection(conn):
     if _db_pool and conn:
         _db_pool.putconn(conn)
 
+def close_pool():
+    global _db_pool
+    if _db_pool is not None:
+        _db_pool.close()
+        _db_pool = None
+
 def init_db():
     conn = None
     try:
