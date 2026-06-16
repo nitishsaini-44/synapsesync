@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from backend.services.openai_service import summarize_message
+from backend.services.ai_service import summarize_message
 from backend.database.db import insert_lead
 from backend.utils.auth_middleware import token_required
 
@@ -14,7 +14,7 @@ def summarize():
     if not message:
         return jsonify({"error": "Message is required"}), 400
 
-    # 1. Call OpenAI
+    # 1. Call AI
     ai_result = summarize_message(message)
     
     # 2. Extract data

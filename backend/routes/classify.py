@@ -1,6 +1,6 @@
 import requests
 from flask import Blueprint, request, jsonify, current_app
-from backend.services.openai_service import classify_lead
+from backend.services.ai_service import classify_lead
 from backend.database.db import insert_lead, get_user_by_email
 from backend.utils.auth_middleware import token_required, api_key_required
 
@@ -15,7 +15,7 @@ def classify():
     if not message:
         return jsonify({"error": "Message is required"}), 400
 
-    # 1. Call OpenAI
+    # 1. Call AI
     ai_result = classify_lead(message)
     
     # 2. Extract data
@@ -76,7 +76,7 @@ def webhook_email_lead():
     if not user:
         return jsonify({"error": f"Admin user {admin_email} not found in database"}), 404
         
-    # 1. Call OpenAI
+    # 1. Call AI
     ai_result = classify_lead(message)
     
     # 2. Extract data

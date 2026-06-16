@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from backend.services.openai_service import generate_reply
+from backend.services.ai_service import generate_reply
 from backend.utils.auth_middleware import token_required
 
 reply_bp = Blueprint('reply', __name__)
@@ -14,7 +14,7 @@ def reply():
     if not message:
         return jsonify({"error": "Message is required"}), 400
 
-    # Call OpenAI
+    # Call AI
     ai_result = generate_reply(message, category)
     
     return jsonify({
