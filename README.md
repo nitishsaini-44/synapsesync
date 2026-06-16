@@ -259,11 +259,9 @@ SynapseSync/
 │   │   ├── summarize.py        # /api/summarize
 │   │   ├── reply.py            # /api/generate-reply
 │   │   ├── leads.py            # /api/leads
-│   │   ├── analytics.py        # /api/analytics
-│   │   └── notify.py           # /api/notify/discord, /api/notify/full_workflow
+│   │   └── analytics.py        # /api/analytics
 │   ├── services/
-│   │   ├── openai_service.py   # Groq AI client (classify, summarize, reply)
-│   │   ├── discord_service.py  # Discord webhook sender
+│   │   ├── ai_service.py       # Groq AI client (classify, summarize, reply)
 │   │   └── analytics_service.py
 │   └── utils/
 │       └── auth_middleware.py  # JWT & API Key decorators
@@ -301,7 +299,6 @@ SynapseSync/
 | `POST` | `/api/generate-reply` | JWT | Generate AI reply |
 | `GET` | `/api/leads` | JWT | Fetch all leads |
 | `GET` | `/api/analytics` | JWT | Get analytics data |
-| `POST` | `/api/notify/full_workflow` | JWT | Run full AI pipeline + Discord |
 | `GET` | `/health` | None | Health check |
 
 ---
