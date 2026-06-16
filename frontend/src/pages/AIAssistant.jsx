@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { MessageSquare, Tags, Sparkles, Copy, RefreshCw, Send } from 'lucide-react';
-import { summarizeEmail, classifyLead, generateReply, sendFullWorkflowToDiscord } from '../api/client';
+import { MessageSquare, Tags, Sparkles, Copy, RefreshCw } from 'lucide-react';
+import { summarizeEmail, classifyLead, generateReply } from '../api/client';
 import LoadingSpinner from '../components/LoadingSpinner';
 import UrgencyBadge from '../components/UrgencyBadge';
 
 const AIAssistant = () => {
   const [input, setInput] = useState('');
-  const [loadingAction, setLoadingAction] = useState(null); // 'summarize', 'classify', 'reply', 'discord'
+  const [loadingAction, setLoadingAction] = useState(null); // 'summarize', 'classify', 'reply'
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
@@ -27,10 +27,6 @@ const AIAssistant = () => {
         res = await classifyLead(input);
       } else if (actionType === 'reply') {
         res = await generateReply(input);
-      } else if (actionType === 'discord') {
-        res = await sendFullWorkflowToDiscord(input);
-        setResult({ type: 'discord', data: { message: "Successfully processed workflow and sent to Discord!" } });
-        return;
       }
       
       setResult({
@@ -100,14 +96,6 @@ const AIAssistant = () => {
                 <span className="text-xs md:text-sm font-medium text-slate-300 group-hover:text-primary">Auto-Reply</span>
               </button>
             </div>
-            <button
-              onClick={() => handleAction('discord')}
-              disabled={loadingAction !== null}
-              className="flex items-center justify-center py-2.5 md:py-3 px-4 w-full rounded-xl bg-[#5865F2] text-white hover:bg-[#4752C4] shadow-lg shadow-[#5865F2]/20 transition-all disabled:opacity-50 mt-2 text-sm md:text-base"
-            >
-              <Send className="mr-2" size={18} />
-              <span className="font-medium">Send Full Workflow to Discord</span>
-            </button>
           </div>
         </div>
 
@@ -170,15 +158,7 @@ const AIAssistant = () => {
                   </div>
                 )}
 
-                {/* Discord Text */}
-                {result.type === 'discord' && result.data?.message && (
-                  <div className="space-y-4">
-                    <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Discord Status</h4>
-                    <p className="text-slate-200 leading-relaxed bg-[#5865F2]/10 p-4 rounded-lg border border-[#5865F2]/30">
-                      {result.data.message}
-                    </p>
-                  </div>
-                )}
+
               </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-4 opacity-50">

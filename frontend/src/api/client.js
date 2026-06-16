@@ -21,7 +21,6 @@ export const classifyLead = (message) => apiClient.post('/classify', { message }
 export const generateReply = (message, category) => apiClient.post('/generate-reply', { message, category });
 export const getAnalytics = () => apiClient.get('/analytics');
 export const getLeads = (category = 'all') => apiClient.get(`/leads?category=${category}`);
-export const sendFullWorkflowToDiscord = (message) => apiClient.post('/notify/full_workflow', { message });
 
 export const loginUser = (email, password) => apiClient.post('/auth/login', { email, password });
 export const registerUser = (name, email, password) => apiClient.post('/auth/register', { name, email, password });

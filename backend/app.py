@@ -9,7 +9,7 @@ from backend.routes.classify import classify_bp
 from backend.routes.reply import reply_bp
 from backend.routes.analytics import analytics_bp
 from backend.routes.leads import leads_bp
-from backend.routes.notify import notify_bp
+
 from backend.routes.auth import auth_bp
 
 def create_app():
@@ -25,7 +25,7 @@ def create_app():
     app.register_blueprint(reply_bp, url_prefix='/api')
     app.register_blueprint(analytics_bp, url_prefix='/api')
     app.register_blueprint(leads_bp, url_prefix='/api')
-    app.register_blueprint(notify_bp, url_prefix='/api')
+
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
 
     # Initialize Database
