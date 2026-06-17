@@ -28,24 +28,24 @@ const LeadManagement = () => {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-fade-in">
+      {/* Page Header + Filters */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl md:text-2xl font-bold text-slate-100">Lead Management</h2>
-          <p className="text-sm md:text-base text-slate-400">View and filter all processed leads.</p>
+          <h1 className="text-2xl md:text-[32px] font-bold text-heading leading-tight">Lead Management</h1>
+          <p className="text-sm md:text-[15px] text-muted mt-1">View and filter all processed leads.</p>
         </div>
         
-        {/* Filters */}
-        <div className="flex items-center space-x-2 bg-dark-surface p-1 rounded-lg border border-slate-700/50 shadow-sm overflow-x-auto">
-          <Filter size={16} className="text-slate-500 ml-2 hidden sm:block" />
+        {/* Segmented Filter Control */}
+        <div className="flex items-center gap-1 bg-surface-card p-1 rounded-2xl border border-border shadow-card overflow-x-auto">
           {categories.map(cat => (
             <button
               key={cat}
               onClick={() => setFilter(cat)}
-              className={`px-3 md:px-4 py-1.5 rounded-md text-xs md:text-sm font-medium capitalize transition-all whitespace-nowrap ${
+              className={`px-3.5 md:px-4 py-2 rounded-xl text-xs md:text-sm font-medium capitalize transition-all duration-200 whitespace-nowrap ${
                 filter === cat 
-                  ? 'bg-primary text-white shadow-md' 
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  ? 'bg-primary text-white shadow-sm' 
+                  : 'text-muted hover:text-heading hover:bg-gray-50'
               }`}
             >
               {cat}
@@ -57,38 +57,45 @@ const LeadManagement = () => {
       {loading ? (
         <div className="py-20"><LoadingSpinner text="Loading leads..." /></div>
       ) : leads.length === 0 ? (
-        <div className="text-center py-20 bg-dark-surface rounded-xl border border-slate-700/50">
-          <Search className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-slate-300">No leads found</h3>
-          <p className="text-slate-500 mt-1">Try changing your filter category or process a new lead.</p>
+        /* Empty State */
+        <div className="text-center py-20 bg-surface-card rounded-card border border-border shadow-card">
+          <div className="w-16 h-16 rounded-2xl bg-surface-bg flex items-center justify-center mx-auto mb-4">
+            <Search className="w-7 h-7 text-gray-300" />
+          </div>
+          <h3 className="text-lg font-semibold text-heading">No leads found</h3>
+          <p className="text-muted text-sm mt-1.5 max-w-sm mx-auto">Try changing your filter category or process a new lead through the AI Assistant.</p>
         </div>
       ) : (
+        /* Lead Cards */
         <div className="grid grid-cols-1 gap-4">
           {leads.map((lead) => (
-            <div key={lead.id} className="bg-dark-surface rounded-xl border border-slate-700/50 p-4 md:p-6 shadow-sm hover:border-slate-600 transition-colors">
-              <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                <div className="flex-1 space-y-3">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700 capitalize">
+            <div key={lead.id} className="bg-surface-card rounded-card border border-border p-5 md:p-6 shadow-card hover:shadow-card-hover hover:border-gray-300 transition-all duration-200">
+              <div className="flex flex-col md:flex-row md:items-start justify-between gap-5">
+                <div className="flex-1 space-y-3.5">
+                  {/* Badges Row */}
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-body border border-border capitalize">
                       {lead.category}
                     </span>
                     <UrgencyBadge level={lead.urgency} />
-                    <span className="text-xs text-slate-500">
+                    <span className="text-xs text-muted">
                       {new Date(lead.created_at).toLocaleString()}
                     </span>
                   </div>
                   
+                  {/* AI Summary */}
                   <div>
-                    <h4 className="text-sm font-semibold text-slate-300 mb-1">AI Summary</h4>
-                    <p className="text-slate-100 text-sm leading-relaxed bg-slate-800/30 p-3 rounded-lg border border-slate-700/30">
+                    <h4 className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">AI Summary</h4>
+                    <p className="text-heading text-sm leading-relaxed bg-surface-bg p-3.5 rounded-2xl border border-border">
                       {lead.summary || 'No summary generated.'}
                     </p>
                   </div>
                 </div>
                 
-                <div className="md:w-1/3 md:pl-6 md:border-l border-slate-700/50">
-                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Original Message</h4>
-                  <p className="text-slate-400 text-sm line-clamp-4 italic">
+                {/* Original Message */}
+                <div className="md:w-1/3 md:pl-6 md:border-l border-divider">
+                  <h4 className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Original Message</h4>
+                  <p className="text-body text-sm line-clamp-4 italic leading-relaxed">
                     "{lead.message}"
                   </p>
                 </div>

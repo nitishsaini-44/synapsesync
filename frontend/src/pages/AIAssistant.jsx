@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MessageSquare, Tags, Sparkles, Copy, RefreshCw } from 'lucide-react';
+import { MessageSquare, Tags, Sparkles, Copy, RefreshCw, Check } from 'lucide-react';
 import { summarizeEmail, classifyLead, generateReply } from '../api/client';
 import LoadingSpinner from '../components/LoadingSpinner';
 import UrgencyBadge from '../components/UrgencyBadge';
@@ -9,6 +9,7 @@ const AIAssistant = () => {
   const [loadingAction, setLoadingAction] = useState(null); // 'summarize', 'classify', 'reply'
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   const handleAction = async (actionType) => {
     if (!input.trim()) {
@@ -42,66 +43,79 @@ const AIAssistant = () => {
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
-    // Simple toast could be added here
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 md:space-y-8 animate-in fade-in duration-500">
+    <div className="max-w-5xl mx-auto space-y-6 md:space-y-8 animate-fade-in">
+      {/* Page Header */}
       <div>
-        <h2 className="text-xl md:text-2xl font-bold text-slate-100">AI Assistant</h2>
-        <p className="text-sm md:text-base text-slate-400">Process emails and messages with AI.</p>
+        <h1 className="text-2xl md:text-[32px] font-bold text-heading leading-tight">AI Assistant</h1>
+        <p className="text-sm md:text-[15px] text-muted mt-1">Process emails and messages with AI.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-8">
         {/* Input Section */}
         <div className="space-y-4">
-          <div className="bg-dark-surface rounded-xl border border-slate-700/50 shadow-sm overflow-hidden focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/50 transition-all">
-            <div className="bg-slate-800/50 px-4 py-2 border-b border-slate-700/50 text-sm font-medium text-slate-300">
-              Input Message
+          <div className="bg-surface-card rounded-card border border-border shadow-card overflow-hidden focus-within:border-primary/40 focus-within:shadow-input-focus transition-all duration-200">
+            <div className="px-5 py-3 border-b border-divider">
+              <span className="text-sm font-medium text-heading">Input Message</span>
             </div>
             <textarea
-              className="w-full h-40 md:h-64 bg-transparent text-slate-200 p-3 md:p-4 outline-none resize-none placeholder-slate-500 text-sm md:text-base"
+              className="w-full h-40 md:h-64 bg-transparent text-heading p-4 md:p-5 outline-none resize-none placeholder-muted/60 text-[15px] leading-relaxed"
               placeholder="Paste an email, customer query, or message here..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
             />
           </div>
 
-          {error && <div className="text-danger text-sm">{error}</div>}
-
-          <div className="grid grid-cols-1 gap-3">
-            <div className="grid grid-cols-3 gap-2 md:gap-3">
-              <button
-                onClick={() => handleAction('summarize')}
-                disabled={loadingAction !== null}
-                className="flex flex-col items-center justify-center p-2.5 md:p-3 rounded-xl bg-dark-surface border border-slate-700 hover:border-primary/50 hover:bg-primary/10 transition-all group disabled:opacity-50"
-              >
-                <MessageSquare className="text-slate-400 group-hover:text-primary mb-1 md:mb-2" size={18} />
-                <span className="text-xs md:text-sm font-medium text-slate-300 group-hover:text-primary">Summarize</span>
-              </button>
-              <button
-                onClick={() => handleAction('classify')}
-                disabled={loadingAction !== null}
-                className="flex flex-col items-center justify-center p-2.5 md:p-3 rounded-xl bg-dark-surface border border-slate-700 hover:border-primary/50 hover:bg-primary/10 transition-all group disabled:opacity-50"
-              >
-                <Tags className="text-slate-400 group-hover:text-primary mb-1 md:mb-2" size={18} />
-                <span className="text-xs md:text-sm font-medium text-slate-300 group-hover:text-primary">Classify</span>
-              </button>
-              <button
-                onClick={() => handleAction('reply')}
-                disabled={loadingAction !== null}
-                className="flex flex-col items-center justify-center p-2.5 md:p-3 rounded-xl bg-dark-surface border border-slate-700 hover:border-primary/50 hover:bg-primary/10 transition-all group disabled:opacity-50"
-              >
-                <Sparkles className="text-slate-400 group-hover:text-primary mb-1 md:mb-2" size={18} />
-                <span className="text-xs md:text-sm font-medium text-slate-300 group-hover:text-primary">Auto-Reply</span>
-              </button>
+          {error && (
+            <div className="flex items-center gap-2 p-3 bg-error-light border border-error/15 rounded-button text-error text-sm">
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+              </svg>
+              <span>{error}</span>
             </div>
+          )}
+
+          <div className="grid grid-cols-3 gap-3">
+            <button
+              onClick={() => handleAction('summarize')}
+              disabled={loadingAction !== null}
+              className="flex flex-col items-center justify-center p-3 md:p-4 rounded-card bg-surface-card border border-border hover:border-primary/30 hover:shadow-card-hover transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="w-10 h-10 rounded-2xl bg-primary-light flex items-center justify-center mb-2 group-hover:bg-primary/10 transition-colors">
+                <MessageSquare className="text-primary" size={18} />
+              </div>
+              <span className="text-xs md:text-sm font-medium text-body group-hover:text-primary transition-colors">Summarize</span>
+            </button>
+            <button
+              onClick={() => handleAction('classify')}
+              disabled={loadingAction !== null}
+              className="flex flex-col items-center justify-center p-3 md:p-4 rounded-card bg-surface-card border border-border hover:border-primary/30 hover:shadow-card-hover transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="w-10 h-10 rounded-2xl bg-primary-light flex items-center justify-center mb-2 group-hover:bg-primary/10 transition-colors">
+                <Tags className="text-primary" size={18} />
+              </div>
+              <span className="text-xs md:text-sm font-medium text-body group-hover:text-primary transition-colors">Classify</span>
+            </button>
+            <button
+              onClick={() => handleAction('reply')}
+              disabled={loadingAction !== null}
+              className="flex flex-col items-center justify-center p-3 md:p-4 rounded-card bg-surface-card border border-border hover:border-primary/30 hover:shadow-card-hover transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="w-10 h-10 rounded-2xl bg-primary-light flex items-center justify-center mb-2 group-hover:bg-primary/10 transition-colors">
+                <Sparkles className="text-primary" size={18} />
+              </div>
+              <span className="text-xs md:text-sm font-medium text-body group-hover:text-primary transition-colors">Auto-Reply</span>
+            </button>
           </div>
         </div>
 
         {/* Results Section */}
-        <div className="bg-dark-surface rounded-xl border border-slate-700/50 shadow-sm p-4 md:p-6 flex flex-col min-h-[300px] md:min-h-[400px]">
-          <h3 className="text-lg font-semibold text-slate-200 mb-6 border-b border-slate-700/50 pb-4">AI Output</h3>
+        <div className="bg-surface-card rounded-card border border-border shadow-card p-5 md:p-6 flex flex-col min-h-[300px] md:min-h-[400px]">
+          <h3 className="text-base font-semibold text-heading mb-5 pb-4 border-b border-divider">AI Output</h3>
           
           <div className="flex-1">
             {loadingAction ? (
@@ -109,11 +123,11 @@ const AIAssistant = () => {
                 <LoadingSpinner text={`AI is thinking...`} />
               </div>
             ) : result ? (
-              <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-300">
+              <div className="space-y-5 animate-fade-in">
                 {/* Status Badges for Summarize/Classify */}
                 {(result.type === 'summarize' || result.type === 'classify') && result.data && (
-                  <div className="flex flex-wrap gap-3">
-                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700 capitalize">
+                  <div className="flex flex-wrap gap-2.5">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-body border border-border capitalize">
                       {result.data.category || 'Uncategorized'}
                     </span>
                     <UrgencyBadge level={result.data.urgency || result.data.priority} />
@@ -123,8 +137,8 @@ const AIAssistant = () => {
                 {/* Summary Text */}
                 {(result.type === 'summarize' || result.type === 'classify') && result.data?.summary && (
                   <div>
-                    <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Summary</h4>
-                    <p className="text-slate-200 leading-relaxed bg-slate-800/30 p-4 rounded-lg border border-slate-700/30">
+                    <h4 className="text-xs font-semibold text-muted uppercase tracking-wider mb-2.5">Summary</h4>
+                    <p className="text-heading leading-relaxed bg-surface-bg p-4 rounded-2xl border border-border text-[15px]">
                       {result.data.summary}
                     </p>
                   </div>
@@ -133,23 +147,23 @@ const AIAssistant = () => {
                 {/* Reply Text */}
                 {result.type === 'reply' && result.data?.reply && (
                   <div className="space-y-4">
-                    <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Drafted Reply</h4>
+                    <h4 className="text-xs font-semibold text-muted uppercase tracking-wider">Drafted Reply</h4>
                     <div className="relative group">
-                      <p className="text-slate-200 leading-relaxed bg-primary/5 p-4 rounded-lg border border-primary/20 whitespace-pre-wrap">
+                      <p className="text-heading leading-relaxed bg-primary-light/50 p-4 rounded-2xl border border-primary/10 whitespace-pre-wrap text-[15px]">
                         {result.data.reply}
                       </p>
                       <button 
                         onClick={() => copyToClipboard(result.data.reply)}
-                        className="absolute top-2 right-2 p-2 rounded-md bg-dark-surface/80 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity hover:text-white"
+                        className="absolute top-3 right-3 p-2 rounded-xl bg-surface-card text-muted opacity-0 group-hover:opacity-100 transition-all duration-200 hover:text-heading hover:shadow-card border border-border"
                         title="Copy to clipboard"
                       >
-                        <Copy size={16} />
+                        {copied ? <Check size={16} className="text-success" /> : <Copy size={16} />}
                       </button>
                     </div>
                     <div className="flex justify-end">
                       <button 
                         onClick={() => handleAction('reply')}
-                        className="flex items-center space-x-2 text-sm text-primary hover:text-primary/80 transition-colors"
+                        className="flex items-center gap-2 text-sm text-primary hover:text-primary-hover transition-colors font-medium"
                       >
                         <RefreshCw size={14} />
                         <span>Regenerate</span>
@@ -158,12 +172,13 @@ const AIAssistant = () => {
                   </div>
                 )}
 
-
               </div>
             ) : (
-              <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-4 opacity-50">
-                <Sparkles size={48} className="text-slate-600" />
-                <p>Waiting for input...</p>
+              <div className="h-full flex flex-col items-center justify-center text-muted space-y-3">
+                <div className="w-16 h-16 rounded-2xl bg-surface-bg flex items-center justify-center">
+                  <Sparkles size={28} className="text-gray-300" />
+                </div>
+                <p className="text-sm">Waiting for input...</p>
               </div>
             )}
           </div>

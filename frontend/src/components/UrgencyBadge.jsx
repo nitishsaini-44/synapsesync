@@ -3,17 +3,17 @@ import React from 'react';
 const UrgencyBadge = ({ level }) => {
   const normLevel = (level || 'low').toLowerCase();
   
-  let colorClass = 'bg-slate-500/20 text-slate-400 border-slate-500/30';
-  let dotClass = 'bg-slate-400';
+  let colorClass = 'bg-gray-50 text-muted border-gray-200';
+  let dotClass = 'bg-muted';
   
   if (normLevel === 'high') {
-    colorClass = 'bg-danger/10 text-danger border-danger/20';
-    dotClass = 'bg-danger';
+    colorClass = 'bg-error-light text-error border-error/15';
+    dotClass = 'bg-error';
   } else if (normLevel === 'medium') {
-    colorClass = 'bg-warning/10 text-warning border-warning/20';
+    colorClass = 'bg-warning-light text-warning border-warning/20';
     dotClass = 'bg-warning';
   } else if (normLevel === 'low') {
-    colorClass = 'bg-success/10 text-success border-success/20';
+    colorClass = 'bg-success-light text-success border-success/15';
     dotClass = 'bg-success';
   }
 

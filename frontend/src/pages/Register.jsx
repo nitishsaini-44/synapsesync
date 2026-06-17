@@ -27,29 +27,35 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-dark-bg p-4">
-      <div className="w-full max-w-md bg-dark-surface rounded-2xl border border-slate-700/50 shadow-xl p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="min-h-screen flex items-center justify-center bg-surface-bg p-4">
+      <div className="w-full max-w-md bg-surface-card rounded-modal border border-border shadow-modal p-8 md:p-10 animate-fade-in">
+        {/* Header */}
         <div className="text-center mb-8">
-          <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-4 border border-primary/20">
-            <UserPlus className="text-primary" size={24} />
+          <div className="w-14 h-14 bg-primary-light rounded-2xl flex items-center justify-center mx-auto mb-5">
+            <UserPlus className="text-primary" size={26} />
           </div>
-          <h2 className="text-2xl font-bold text-slate-100">Create Account</h2>
-          <p className="text-slate-400 mt-2 text-sm">Join the SynapseSync platform</p>
+          <h1 className="text-2xl font-bold text-heading">Create Account</h1>
+          <p className="text-muted mt-2 text-[15px]">Join the SynapseSync platform</p>
         </div>
 
+        {/* Error Alert */}
         {error && (
-          <div className="mb-6 p-3 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm text-center">
-            {error}
+          <div className="mb-6 flex items-center gap-2.5 p-3.5 bg-error-light border border-error/15 rounded-button text-error text-sm">
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+            </svg>
+            <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Full Name</label>
+            <label className="block text-sm font-medium text-heading mb-1.5">Full Name</label>
             <input
               type="text"
               required
-              className="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all"
+              className="w-full h-12 px-4 bg-surface-card border border-border rounded-input text-heading placeholder-muted/50 focus:outline-none focus:border-primary focus:shadow-input-focus transition-all duration-200 text-[15px]"
               placeholder="John Doe"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -57,11 +63,11 @@ const Register = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Email</label>
+            <label className="block text-sm font-medium text-heading mb-1.5">Email</label>
             <input
               type="email"
               required
-              className="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all"
+              className="w-full h-12 px-4 bg-surface-card border border-border rounded-input text-heading placeholder-muted/50 focus:outline-none focus:border-primary focus:shadow-input-focus transition-all duration-200 text-[15px]"
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -69,11 +75,11 @@ const Register = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Password</label>
+            <label className="block text-sm font-medium text-heading mb-1.5">Password</label>
             <input
               type="password"
               required
-              className="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all"
+              className="w-full h-12 px-4 bg-surface-card border border-border rounded-input text-heading placeholder-muted/50 focus:outline-none focus:border-primary focus:shadow-input-focus transition-all duration-200 text-[15px]"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -83,15 +89,16 @@ const Register = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 px-4 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 disabled:opacity-50 mt-4"
+            className="w-full h-11 px-4 bg-primary text-white rounded-button font-medium hover:bg-primary-hover transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-2 text-[15px]"
           >
             {loading ? 'Creating account...' : 'Create Account'}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-slate-400">
+        {/* Footer Link */}
+        <p className="mt-7 text-center text-sm text-muted">
           Already have an account?{' '}
-          <Link to="/login" className="text-primary hover:underline">
+          <Link to="/login" className="text-primary font-medium hover:text-primary-hover transition-colors">
             Sign in
           </Link>
         </p>

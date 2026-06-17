@@ -4,38 +4,49 @@ import UrgencyBadge from './UrgencyBadge';
 const RecentSummaries = ({ summaries }) => {
   if (!summaries || summaries.length === 0) {
     return (
-      <div className="text-center py-8 text-slate-400 bg-dark-surface rounded-xl border border-slate-700">
-        No recent summaries found.
+      <div className="text-center py-12 text-muted bg-surface-card rounded-card border border-border">
+        <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+        </svg>
+        <p className="text-sm font-medium text-body">No recent summaries</p>
+        <p className="text-xs text-muted mt-1">Summaries will appear here once you process messages.</p>
       </div>
     );
   }
 
   return (
     <>
-      {/* Desktop Table — hidden on small screens */}
-      <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-700">
-        <table className="w-full text-left text-sm text-slate-300">
-          <thead className="bg-dark-surface text-xs uppercase text-slate-400 border-b border-slate-700">
-            <tr>
-              <th className="px-6 py-4 font-medium">Message Snapshot</th>
-              <th className="px-6 py-4 font-medium">Category</th>
-              <th className="px-6 py-4 font-medium">Urgency</th>
-              <th className="px-6 py-4 font-medium">Date</th>
+      {/* Desktop Table — card-style with rounded headers */}
+      <div className="hidden md:block bg-surface-card rounded-card border border-border shadow-card overflow-hidden">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="bg-divider/60">
+              <th className="px-6 py-4 font-medium text-xs uppercase tracking-wider text-muted">Message Snapshot</th>
+              <th className="px-6 py-4 font-medium text-xs uppercase tracking-wider text-muted">Category</th>
+              <th className="px-6 py-4 font-medium text-xs uppercase tracking-wider text-muted">Urgency</th>
+              <th className="px-6 py-4 font-medium text-xs uppercase tracking-wider text-muted">Date</th>
             </tr>
           </thead>
-          <tbody className="bg-dark-surface divide-y divide-slate-700/50">
-            {summaries.map((item) => (
-              <tr key={item.id} className="hover:bg-dark-surfaceHover transition-colors">
-                <td className="px-6 py-4 max-w-xs truncate text-slate-200">
+          <tbody>
+            {summaries.map((item, index) => (
+              <tr 
+                key={item.id} 
+                className={`hover:bg-gray-50/80 transition-colors ${
+                  index !== summaries.length - 1 ? 'border-b border-divider' : ''
+                }`}
+              >
+                <td className="px-6 py-4 max-w-xs truncate text-heading font-medium text-sm">
                   {item.message}
                 </td>
-                <td className="px-6 py-4 capitalize text-slate-300">
-                  {item.category}
+                <td className="px-6 py-4">
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-body border border-border capitalize">
+                    {item.category}
+                  </span>
                 </td>
                 <td className="px-6 py-4">
                   <UrgencyBadge level={item.urgency} />
                 </td>
-                <td className="px-6 py-4 text-slate-400 whitespace-nowrap">
+                <td className="px-6 py-4 text-muted text-sm whitespace-nowrap">
                   {new Date(item.created_at).toLocaleDateString()}
                 </td>
               </tr>
@@ -44,25 +55,25 @@ const RecentSummaries = ({ summaries }) => {
         </table>
       </div>
 
-      {/* Mobile Card Layout — shown only on small screens */}
+      {/* Mobile Card Layout */}
       <div className="md:hidden space-y-3">
         {summaries.map((item) => (
           <div
             key={item.id}
-            className="bg-dark-surface rounded-xl border border-slate-700/50 p-4 space-y-3"
+            className="bg-surface-card rounded-card border border-border p-4 space-y-3 shadow-card"
           >
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700 capitalize">
+                <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-body border border-border capitalize">
                   {item.category}
                 </span>
                 <UrgencyBadge level={item.urgency} />
               </div>
-              <span className="text-xs text-slate-500 whitespace-nowrap">
+              <span className="text-xs text-muted whitespace-nowrap">
                 {new Date(item.created_at).toLocaleDateString()}
               </span>
             </div>
-            <p className="text-sm text-slate-200 line-clamp-2">
+            <p className="text-sm text-heading leading-relaxed line-clamp-2">
               {item.message}
             </p>
           </div>

@@ -20,13 +20,13 @@ const ProtectedRoute = ({ children }) => {
 // Main App Layout for authenticated users
 const MainLayout = ({ children }) => {
   return (
-    <div className="flex h-screen bg-dark-bg text-slate-100 overflow-hidden">
+    <div className="flex h-screen bg-surface-bg overflow-hidden">
       {/* Sidebar Navigation */}
       <Navbar />
       
-      {/* Main Content Area — pt-14 offsets the fixed mobile top bar */}
-      <main className="flex-1 overflow-y-auto bg-dark-bg pt-14 md:pt-0 p-4 md:p-8">
-        <div className="max-w-6xl mx-auto">
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-y-auto pt-14 md:pt-0 px-4 py-6 md:px-8 lg:px-10 md:py-8">
+        <div className="max-w-layout mx-auto">
           {children}
         </div>
       </main>
