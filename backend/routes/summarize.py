@@ -3,16 +3,40 @@ from backend.services.ai_service import summarize_message
 from backend.database.db import insert_lead
 from backend.utils.auth_middleware import token_required
 
+import re
+import html
+
 summarize_bp = Blueprint('summarize', __name__)
+
+def clean_html(raw_html):
+    if not raw_html:
+        return ""
+    # Decode HTML entities
+    text = html.unescape(raw_html)
+    # Remove style and script tags completely
+    text = re.sub(r'<style.*?</style>', ' ', text, flags=re.IGNORECASE|re.DOTALL)
+    text = re.sub(r'<script.*?</script>', ' ', text, flags=re.IGNORECASE|re.DOTALL)
+    # Remove all other HTML tags
+    text = re.sub(r'<[^>]+>', ' ', text)
+    # Normalize whitespace
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
 
 @summarize_bp.route('/summarize', methods=['POST'])
 @token_required
 def summarize():
     data = request.json
-    message = data.get('message')
+    raw_message = data.get('message')
     
-    if not message:
+    if not raw_message:
         return jsonify({"error": "Message is required"}), 400
+
+    # Clean the message
+    message = clean_html(raw_message)
+    
+    # If it was just HTML structural tags with no text, fallback to raw_message
+    if not message.strip():
+        message = raw_message
 
     # 1. Call AI
     ai_result = summarize_message(message)
