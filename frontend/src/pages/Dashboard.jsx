@@ -3,12 +3,14 @@ import { Activity, AlertTriangle, Briefcase, HelpCircle } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import StatCard from '../components/StatCard';
 import RecentSummaries from '../components/RecentSummaries';
+import LeadDetailModal from '../components/LeadDetailModal';
 import { getAnalytics } from '../api/client';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selectedLead, setSelectedLead] = useState(null);
 
   useEffect(() => {
     fetchStats();
@@ -121,9 +123,14 @@ const Dashboard = () => {
         {/* Recent Activity */}
         <div className="lg:col-span-2 space-y-4">
           <h3 className="text-lg font-semibold text-heading">Recent Activity</h3>
-          <RecentSummaries summaries={stats.recent_summaries} />
+          <RecentSummaries summaries={stats.recent_summaries} onItemClick={(item) => setSelectedLead(item)} />
         </div>
       </div>
+
+      {/* Detail Modal */}
+      {selectedLead && (
+        <LeadDetailModal lead={selectedLead} onClose={() => setSelectedLead(null)} />
+      )}
     </div>
   );
 };

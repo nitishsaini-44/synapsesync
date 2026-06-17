@@ -3,11 +3,13 @@ import { Filter, Search } from 'lucide-react';
 import { getLeads } from '../api/client';
 import LoadingSpinner from '../components/LoadingSpinner';
 import UrgencyBadge from '../components/UrgencyBadge';
+import LeadDetailModal from '../components/LeadDetailModal';
 
 const LeadManagement = () => {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [selectedLead, setSelectedLead] = useState(null);
 
   const categories = ['all', 'urgent', 'sales', 'support', 'spam'];
 
@@ -71,7 +73,7 @@ const LeadManagement = () => {
         /* Lead Cards */
         <div className="grid grid-cols-1 gap-4">
           {leads.map((lead) => (
-            <div key={lead.id} className="bg-surface-card rounded-card border border-border p-5 md:p-6 shadow-card hover:shadow-card-hover hover:border-gray-300 transition-all duration-200">
+            <div key={lead.id} onClick={() => setSelectedLead(lead)} className="bg-surface-card rounded-card border border-border p-5 md:p-6 shadow-card hover:shadow-card-hover hover:border-gray-300 transition-all duration-200 cursor-pointer">
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-5">
                 <div className="flex-1 space-y-3.5">
                   {/* Badges Row */}
@@ -105,6 +107,11 @@ const LeadManagement = () => {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Detail Modal */}
+      {selectedLead && (
+        <LeadDetailModal lead={selectedLead} onClose={() => setSelectedLead(null)} />
       )}
     </div>
   );

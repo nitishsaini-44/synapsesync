@@ -1,7 +1,7 @@
 import React from 'react';
 import UrgencyBadge from './UrgencyBadge';
 
-const RecentSummaries = ({ summaries }) => {
+const RecentSummaries = ({ summaries, onItemClick }) => {
   if (!summaries || summaries.length === 0) {
     return (
       <div className="text-center py-12 text-muted bg-surface-card rounded-card border border-border">
@@ -30,8 +30,9 @@ const RecentSummaries = ({ summaries }) => {
           <tbody>
             {summaries.map((item, index) => (
               <tr 
-                key={item.id} 
-                className={`hover:bg-gray-50/80 transition-colors ${
+                key={item.id}
+                onClick={() => onItemClick && onItemClick(item)}
+                className={`hover:bg-gray-50/80 transition-colors cursor-pointer ${
                   index !== summaries.length - 1 ? 'border-b border-divider' : ''
                 }`}
               >
@@ -60,7 +61,8 @@ const RecentSummaries = ({ summaries }) => {
         {summaries.map((item) => (
           <div
             key={item.id}
-            className="bg-surface-card rounded-card border border-border p-4 space-y-3 shadow-card"
+            onClick={() => onItemClick && onItemClick(item)}
+            className="bg-surface-card rounded-card border border-border p-4 space-y-3 shadow-card cursor-pointer hover:shadow-card-hover transition-all duration-200"
           >
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 flex-wrap">

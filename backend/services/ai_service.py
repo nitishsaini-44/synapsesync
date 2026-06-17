@@ -128,7 +128,8 @@ def generate_reply(message: str, category: str = None) -> dict:
                     "role": "system",
                     "content": (
                         "You are a professional customer support assistant. "
-                        "Draft a polite, professional reply to the user's message. "
+                        "Draft a polite, professional, and concise reply to the user's message. "
+                        "Keep the reply short and to the point (maximum 3 sentences). "
                         f"{context} "
                         "Respond in JSON format with exactly one key: 'reply' containing the response text."
                     )
