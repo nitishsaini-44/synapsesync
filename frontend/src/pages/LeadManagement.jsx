@@ -19,7 +19,9 @@ const LeadManagement = () => {
     try {
       setLoading(true);
       const res = await getLeads(category);
-      setLeads(res.data || []);
+      const allLeads = res.data || [];
+      const limit = category === 'all' ? 40 : 30;
+      setLeads(allLeads.slice(0, limit));
     } catch (error) {
       console.error("Failed to fetch leads", error);
     } finally {
