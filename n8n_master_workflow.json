@@ -28,7 +28,7 @@
           "parameters": [
             {
               "name": "X-Internal-Secret",
-              "value": "n8n_secure_key_123"
+              "value": "={{ $env.N8N_ENCRYPTION_KEY }}"
             }
           ]
         },
@@ -52,7 +52,7 @@
           "parameters": [
             {
               "name": "X-Internal-Secret",
-              "value": "n8n_secure_key_123"
+              "value": "={{ $env.N8N_ENCRYPTION_KEY }}"
             }
           ]
         },

@@ -9,7 +9,7 @@ class Config:
     FLASK_ENV = os.environ.get('FLASK_ENV', 'development')
     N8N_WEBHOOK_URL = os.environ.get('N8N_WEBHOOK_URL', 'http://localhost:5678')
     DISCORD_WEBHOOK_URL = os.environ.get('DISCORD_WEBHOOK_URL', '')
-    APP_API_KEY = os.environ.get('APP_API_KEY', 'n8n_secure_key_123')
+    APP_API_KEY = os.environ.get('APP_API_KEY')
     FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
     ADMIN_USER_EMAIL = os.environ.get('ADMIN_USER_EMAIL', 'nitishsaini7055@gmail.com')
     
