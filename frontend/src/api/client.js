@@ -25,4 +25,9 @@ export const getLeads = (category = 'all') => apiClient.get(`/leads?category=${c
 export const loginUser = (email, password) => apiClient.post('/auth/login', { email, password });
 export const registerUser = (name, email, password) => apiClient.post('/auth/register', { name, email, password });
 
+export const getUserSettings = () => apiClient.get('/user/settings');
+export const updateUserSettings = (settings) => apiClient.put('/user/settings', settings);
+export const getGoogleConnectUrl = () => apiClient.get('/google/connect');
+export const saveDiscordWebhook = (webhook_url) => apiClient.post('/discord/save', { webhook_url });
+
 export default apiClient;

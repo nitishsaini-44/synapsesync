@@ -4,6 +4,7 @@ import Navbar from './components/Navbar';
 import Dashboard from './pages/Dashboard';
 import AIAssistant from './pages/AIAssistant';
 import LeadManagement from './pages/LeadManagement';
+import Integrations from './pages/Integrations';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import { AuthProvider, useAuth } from './components/AuthContext';
@@ -57,6 +58,11 @@ function App() {
           <Route path="/leads" element={
             <ProtectedRoute>
               <MainLayout><LeadManagement /></MainLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/integrations" element={
+            <ProtectedRoute>
+              <MainLayout><Integrations /></MainLayout>
             </ProtectedRoute>
           } />
           

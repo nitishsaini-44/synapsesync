@@ -25,8 +25,16 @@ def create_app():
     app.register_blueprint(reply_bp, url_prefix='/api')
     app.register_blueprint(analytics_bp, url_prefix='/api')
     app.register_blueprint(leads_bp, url_prefix='/api')
-
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
+
+    from backend.routes.oauth import oauth_bp
+    from backend.routes.user import user_bp
+    from backend.routes.discord import discord_bp
+    from backend.routes.internal import internal_bp
+    app.register_blueprint(oauth_bp, url_prefix='/api')
+    app.register_blueprint(user_bp, url_prefix='/api')
+    app.register_blueprint(discord_bp, url_prefix='/api')
+    app.register_blueprint(internal_bp, url_prefix='/api')
 
     # Initialize Database
     with app.app_context():

@@ -25,4 +25,4 @@ EXPOSE 5000
 # Notice: since we copy backend/ into /app, app.py is at /app/app.py
 # If pythonpath is needed, we should run gunicorn with the correct module path
 # If we set workdir to /app and run gunicorn app:app, it works if app.py is in /app
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--worker-class", "gthread", "--threads", "4", "app:app"]

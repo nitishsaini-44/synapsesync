@@ -18,7 +18,7 @@ def get_pool():
                 f"password={os.environ.get('POSTGRES_PASSWORD', 'postgres')} "
                 f"sslmode={os.environ.get('POSTGRES_SSLMODE', 'require')}"
             )
-            _db_pool = ConnectionPool(conninfo, min_size=1, max_size=20)
+            _db_pool = ConnectionPool(conninfo, min_size=1, max_size=5, timeout=10)
         except Exception as e:
             print(f"Error connecting to PostgreSQL: {e}")
             raise e
@@ -92,16 +92,102 @@ def get_user_by_email(email):
     finally:
         release_connection(conn)
 
-def insert_lead(user_id, message, category, summary, urgency, ai_reply=None):
+def get_user_by_id(user_id):
+    conn = None
+    try:
+        conn = get_connection()
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+            return cur.fetchone()
+    except Exception as e:
+        raise e
+    finally:
+        release_connection(conn)
+
+def update_user_settings(user_id, discord_webhook=None, automation_enabled=None):
+    conn = None
+    try:
+        conn = get_connection()
+        with conn.cursor(row_factory=dict_row) as cur:
+            # Only update fields that are provided
+            updates = []
+            params = []
+            if discord_webhook is not None:
+                updates.append("discord_webhook = %s")
+                params.append(discord_webhook)
+            if automation_enabled is not None:
+                updates.append("automation_enabled = %s")
+                params.append(automation_enabled)
+                
+            if not updates:
+                return get_user_by_id(user_id)
+                
+            query = f"UPDATE users SET {', '.join(updates)} WHERE id = %s RETURNING *"
+            params.append(user_id)
+            
+            cur.execute(query, tuple(params))
+            updated_user = cur.fetchone()
+            conn.commit()
+            return updated_user
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        raise e
+    finally:
+        release_connection(conn)
+
+def update_google_tokens(user_id, google_email, google_refresh_token):
     conn = None
     try:
         conn = get_connection()
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("""
-                INSERT INTO leads (user_id, message, category, summary, urgency, ai_reply)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                RETURNING id, user_id, message, category, summary, urgency, ai_reply, created_at
-            """, (user_id, message, category, summary, urgency, ai_reply))
+                UPDATE users 
+                SET google_email = %s, google_refresh_token = %s
+                WHERE id = %s
+                RETURNING *
+            """, (google_email, google_refresh_token, user_id))
+            updated_user = cur.fetchone()
+            conn.commit()
+            return updated_user
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        raise e
+    finally:
+        release_connection(conn)
+
+def update_last_message_id(user_id, last_message_id):
+    conn = None
+    try:
+        conn = get_connection()
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                UPDATE users 
+                SET last_message_id = %s
+                WHERE id = %s
+                RETURNING *
+            """, (last_message_id, user_id))
+            updated_user = cur.fetchone()
+            conn.commit()
+            return updated_user
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        raise e
+    finally:
+        release_connection(conn)
+
+def insert_lead(user_id, message, category, summary, urgency, ai_reply=None, gmail_message_id=None):
+    conn = None
+    try:
+        conn = get_connection()
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                INSERT INTO leads (user_id, message, category, summary, urgency, ai_reply, gmail_message_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                RETURNING id, user_id, message, category, summary, urgency, ai_reply, gmail_message_id, created_at
+            """, (user_id, message, category, summary, urgency, ai_reply, gmail_message_id))
             new_lead = cur.fetchone()
             conn.commit()
             return new_lead
@@ -156,6 +242,39 @@ def get_analytics(user_id):
                 "spam_count": category_counts.get("spam", 0),
                 "recent_summaries": recent
             }
+    except Exception as e:
+        raise e
+    finally:
+        release_connection(conn)
+
+def get_active_users():
+    """Returns users who have automation enabled and a connected Google account."""
+    conn = None
+    try:
+        conn = get_connection()
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                SELECT id, google_refresh_token, discord_webhook, last_message_id 
+                FROM users 
+                WHERE automation_enabled = TRUE 
+                AND google_refresh_token IS NOT NULL
+            """)
+            return cur.fetchall()
+    except Exception as e:
+        raise e
+    finally:
+        release_connection(conn)
+
+def is_lead_processed(gmail_message_id):
+    """Checks if a lead with the given gmail_message_id already exists."""
+    if not gmail_message_id:
+        return False
+    conn = None
+    try:
+        conn = get_connection()
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("SELECT id FROM leads WHERE gmail_message_id = %s", (gmail_message_id,))
+            return cur.fetchone() is not None
     except Exception as e:
         raise e
     finally:

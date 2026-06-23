@@ -33,6 +33,7 @@ const Navbar = () => {
     { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={22} /> },
     { name: 'AI Assistant', path: '/assistant', icon: <MessageSquare size={22} /> },
     { name: 'Leads', path: '/leads', icon: <Users size={22} /> },
+    { name: 'Integrations', path: '/integrations', icon: <Settings size={22} /> },
   ];
 
   /* ─── Desktop Slim Sidebar (icon-only, 80px) ─── */

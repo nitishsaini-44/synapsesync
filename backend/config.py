@@ -10,4 +10,13 @@ class Config:
     N8N_WEBHOOK_URL = os.environ.get('N8N_WEBHOOK_URL', 'http://localhost:5678')
     DISCORD_WEBHOOK_URL = os.environ.get('DISCORD_WEBHOOK_URL', '')
     APP_API_KEY = os.environ.get('APP_API_KEY', 'n8n_secure_key_123')
+    FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
     ADMIN_USER_EMAIL = os.environ.get('ADMIN_USER_EMAIL', 'nitishsaini7055@gmail.com')
+    
+    # Security
+    FERNET_KEY = os.environ.get('FERNET_KEY')
+    
+    # Google OAuth
+    GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
+    GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
+    GOOGLE_REDIRECT_URI = os.environ.get('GOOGLE_REDIRECT_URI', 'http://localhost:5000/api/google/callback')
