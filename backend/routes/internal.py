@@ -1,3 +1,4 @@
+import threading
 from flask import Blueprint, jsonify, request, current_app
 from backend.database.db import get_active_users
 from backend.services.automation_service import process_user_emails
@@ -27,6 +28,14 @@ def get_active_users_endpoint():
         print(f"Error fetching active users: {e}")
         return jsonify({"error": "Server error"}), 500
 
+def run_in_background(app, user_id):
+    """Wrapper to run the email processor inside the Flask application context."""
+    with app.app_context():
+        try:
+            process_user_emails(user_id)
+        except Exception as e:
+            print(f"Background thread error for user {user_id}: {e}")
+
 @internal_bp.route('/process-user', methods=['POST'])
 @require_internal_secret
 def process_user_endpoint():
@@ -37,8 +46,13 @@ def process_user_endpoint():
     if not user_id:
         return jsonify({"error": "user_id is required"}), 400
         
-    success = process_user_emails(user_id)
-    if success:
-        return jsonify({"message": f"Successfully processed user {user_id}"}), 200
-    else:
-        return jsonify({"error": f"Failed or nothing to process for user {user_id}"}), 200 # Returning 200 so n8n doesn't crash on empty mailbox
+    # We must pass the actual application object to the thread so it has the DB/Config context
+    app = current_app._get_current_object()
+    
+    # Start the processing in a background thread
+    thread = threading.Thread(target=run_in_background, args=(app, user_id))
+    thread.daemon = True # Allows the server to exit even if threads are running
+    thread.start()
+    
+    # Return 202 Accepted immediately so n8n finishes in milliseconds
+    return jsonify({"message": f"Processing started in background for user {user_id}"}), 202
