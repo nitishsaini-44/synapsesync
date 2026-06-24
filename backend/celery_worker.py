@@ -21,3 +21,6 @@ def make_celery(app=None):
     return celery
 
 celery_app = make_celery()
+
+# Import tasks to register them with the celery worker
+import backend.tasks
