@@ -1,19 +1,10 @@
 import base64
 import json
-import threading
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify
 from backend.database.db import get_user_by_google_email
-from backend.services.automation_service import process_user_emails
+from backend.tasks import process_email_task
 
 webhooks_bp = Blueprint('webhooks', __name__)
-
-def run_in_background(app, user_id):
-    """Wrapper to run the email processor inside the Flask application context."""
-    with app.app_context():
-        try:
-            process_user_emails(user_id)
-        except Exception as e:
-            print(f"Webhook thread error for user {user_id}: {e}")
 
 @webhooks_bp.route('/gmail', methods=['POST'])
 def gmail_webhook():
@@ -56,14 +47,11 @@ def gmail_webhook():
             return jsonify({"status": "ignored", "reason": "automation disabled"}), 200
 
         user_id = user['id']
-        app = current_app._get_current_object()
 
-        # Start the processing in a background thread instantly
-        thread = threading.Thread(target=run_in_background, args=(app, user_id))
-        thread.daemon = True
-        thread.start()
+        # Dispatch the task to Celery
+        process_email_task.delay(user_id)
 
-        print(f"⚡ INSTANT PUSH: Background processing started for {google_email}")
+        print(f"⚡ CELERY DISPATCH: Task pushed to Redis for {google_email}")
         
         # Always return 200 to acknowledge receipt of the push notification
         return jsonify({"status": "success", "message": "processing started"}), 200

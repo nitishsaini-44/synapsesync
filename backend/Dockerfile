@@ -21,8 +21,8 @@ ENV PYTHONPATH=/app
 
 EXPOSE 5000
 
-# Run gunicorn
-# Notice: since we copy backend/ into /app, app.py is at /app/app.py
-# If pythonpath is needed, we should run gunicorn with the correct module path
-# If we set workdir to /app and run gunicorn app:app, it works if app.py is in /app
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--worker-class", "gthread", "--threads", "4", "backend.app:app"]
+# Make start.sh executable
+RUN chmod +x /app/backend/start.sh
+
+# Run the start script which boots both Celery and Gunicorn
+CMD ["/app/backend/start.sh"]
