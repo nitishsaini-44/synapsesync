@@ -4,6 +4,49 @@ import { X, Mail, Sparkles, MessageSquare, Copy, Check, Loader2, RefreshCw } fro
 import UrgencyBadge from './UrgencyBadge';
 import { generateReply } from '../api/client';
 
+// Strips HTML tags, collapses long URLs, and normalises whitespace for display only.
+// The raw lead.message is still used unchanged for AI reply generation.
+const cleanMessageForDisplay = (raw) => {
+  if (!raw) return '';
+
+  let text = raw;
+
+  // Remove <style>…</style> and <script>…</script> blocks entirely
+  text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ');
+  text = text.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ');
+
+  // Strip all remaining HTML tags
+  text = text.replace(/<[^>]+>/g, ' ');
+
+  // Decode common HTML entities
+  text = text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ');
+
+  // Replace long URLs (> 60 chars) with a short [link] placeholder
+  text = text.replace(/https?:\/\/\S{60,}/g, '[link]');
+
+  // Collapse multiple spaces / tabs to one space
+  text = text.replace(/[ \t]+/g, ' ');
+
+  // Collapse 3+ consecutive newlines to two
+  text = text.replace(/\n{3,}/g, '\n\n');
+
+  // Trim leading/trailing whitespace from each line, then overall
+  text = text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line, i, arr) => !(line === '' && arr[i - 1] === ''))  // remove duplicate blank lines
+    .join('\n')
+    .trim();
+
+  return text || raw; // fallback to raw if cleaning wiped everything
+};
+
 const LeadDetailModal = ({ lead, onClose }) => {
   const [copied, setCopied] = useState(null); // 'message' | 'summary' | 'reply'
   const [aiReply, setAiReply] = useState(lead?.ai_reply || null);
@@ -111,7 +154,7 @@ const LeadDetailModal = ({ lead, onClose }) => {
             </div>
             <div className="bg-surface-bg rounded-2xl border border-border p-4">
               <p className="text-heading text-[15px] leading-relaxed whitespace-pre-wrap">
-                {lead.message || 'No message available.'}
+                {cleanMessageForDisplay(lead.message) || 'No message available.'}
               </p>
             </div>
           </section>
