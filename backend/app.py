@@ -31,10 +31,12 @@ def create_app():
     from backend.routes.user import user_bp
     from backend.routes.discord import discord_bp
     from backend.routes.internal import internal_bp
+    from backend.routes.webhooks import webhooks_bp
     app.register_blueprint(oauth_bp, url_prefix='/api')
     app.register_blueprint(user_bp, url_prefix='/api')
     app.register_blueprint(discord_bp, url_prefix='/api')
     app.register_blueprint(internal_bp, url_prefix='/api')
+    app.register_blueprint(webhooks_bp, url_prefix='/api/webhooks')
 
     # Initialize Database
     with app.app_context():

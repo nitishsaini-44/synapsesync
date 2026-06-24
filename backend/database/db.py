@@ -92,6 +92,18 @@ def get_user_by_email(email):
     finally:
         release_connection(conn)
 
+def get_user_by_google_email(google_email):
+    conn = None
+    try:
+        conn = get_connection()
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("SELECT * FROM users WHERE google_email = %s", (google_email,))
+            return cur.fetchone()
+    except Exception as e:
+        raise e
+    finally:
+        release_connection(conn)
+
 def get_user_by_id(user_id):
     conn = None
     try:

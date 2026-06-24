@@ -118,3 +118,22 @@ def fetch_latest_messages(access_token: str, last_message_id: str = None, max_re
             })
             
     return messages
+
+def watch_inbox(access_token: str, topic_name: str):
+    """
+    Subscribes the user's Gmail inbox to a Google Cloud Pub/Sub topic.
+    Google will push notifications to this topic whenever the inbox changes.
+    """
+    url = "https://gmail.googleapis.com/gmail/v1/users/me/watch"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "labelIds": ["INBOX"],
+        "topicName": topic_name
+    }
+    
+    response = requests.post(url, headers=headers, json=data)
+    response.raise_for_status()
+    return response.json()

@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request, current_app, redirect
-from backend.services.gmail_service import exchange_code_for_token, get_profile_email
+from backend.services.gmail_service import exchange_code_for_token, get_profile_email, watch_inbox
 from backend.utils.encryption import encrypt_data
 from backend.database.db import update_google_tokens
 from backend.utils.auth_middleware import token_required
@@ -72,6 +72,15 @@ def google_callback():
         # Encrypt and save refresh token
         encrypted_rt = encrypt_data(refresh_token) if refresh_token else None
         update_google_tokens(user_id, google_email, encrypted_rt)
+        
+        # Subscribe to Push Notifications
+        topic_name = current_app.config.get('GOOGLE_PUBSUB_TOPIC')
+        if topic_name:
+            try:
+                watch_inbox(access_token, topic_name)
+                print(f"Successfully registered push watch for {google_email}")
+            except Exception as e:
+                print(f"Failed to register watch for {google_email}: {e}")
         
         return redirect(f"{frontend_redirect}?status=success")
         
