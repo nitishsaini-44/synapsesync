@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Filter, Search } from 'lucide-react';
 import { getLeads } from '../api/client';
+import socket from '../api/socket';
 import LoadingSpinner from '../components/LoadingSpinner';
 import UrgencyBadge from '../components/UrgencyBadge';
 import LeadDetailModal from '../components/LeadDetailModal';
@@ -30,6 +31,28 @@ const LeadManagement = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const handleNewLead = (newLead) => {
+      console.log("WebSocket: New Lead Received on Leads page!", newLead);
+      setLeads((prevLeads) => {
+        // If we are filtering and the new lead doesn't match the current filter, ignore it
+        if (filter !== 'all' && newLead.category !== filter) {
+          return prevLeads;
+        }
+        
+        // Prevent duplicates just in case
+        if (prevLeads.find(l => l.id === newLead.id)) return prevLeads;
+        
+        return [newLead, ...prevLeads];
+      });
+    };
+
+    socket.on('new_lead', handleNewLead);
+    return () => {
+      socket.off('new_lead', handleNewLead);
+    };
+  }, [filter]);
 
   return (
     <div className="space-y-8 animate-fade-in">

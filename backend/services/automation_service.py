@@ -5,6 +5,107 @@ from backend.services.gmail_service import refresh_access_token, fetch_latest_me
 from backend.services.ai_service import classify_lead
 from backend.services.discord_service import send_notification
 from backend.utils.email_cleaner import clean_email_body
+import concurrent.futures
+from flask import current_app
+from backend.app import socketio
+
+def process_single_message(app, user, msg):
+    """Worker function to process a single message."""
+    user_id = user['id']
+    with app.app_context():
+        try:
+            msg_id = msg['id']
+            
+            # 4. Prevent duplicate processing using gmail_message_id
+            if is_lead_processed(msg_id):
+                return False
+                
+            body_text = msg.get('body') or msg.get('snippet') or "Empty message"
+            sender = msg.get('sender', 'Unknown')
+            
+            full_text = f"From: {sender}\n\n{body_text}"
+            
+            # 5. Clean HTML and Links
+            cleaned_text = clean_email_body(full_text)
+            
+            # 6. Send clean message to Groq AI
+            ai_result = classify_lead(cleaned_text)
+            
+            # 7. Receive category, urgency, summary
+            category = ai_result.get('category', 'support')
+            urgency = ai_result.get('priority', 'low')
+            summary = ai_result.get('summary', 'No summary available')
+            
+            # 8. Store lead in PostgreSQL
+            lead = insert_lead(
+                user_id=user_id,
+                message=cleaned_text,
+                category=category,
+                summary=summary,
+                urgency=urgency,
+                ai_reply=None,
+                gmail_message_id=msg_id
+            )
+            
+            # Prepare payload for WebSockets and Discord
+            lead_data = dict(lead) if lead else {}
+            if 'created_at' in lead_data and lead_data['created_at']:
+                lead_data['created_at'] = lead_data['created_at'].isoformat()
+                
+            # Broadcast to real-time dashboard
+            socketio.emit('new_lead', lead_data)
+            
+            # 9. Send Discord notification
+            encrypted_webhook = user.get('discord_webhook')
+            if encrypted_webhook:
+                try:
+                    webhook_url = decrypt_data(encrypted_webhook)
+                    if webhook_url:
+                        payload = {
+                            "embeds": [
+                                {
+                                    "title": "🚨 New Lead Processed",
+                                    "color": 0x3498db,
+                                    "fields": [
+                                        {
+                                            "name": "📧 From",
+                                            "value": sender,
+                                            "inline": False
+                                        },
+                                        {
+                                            "name": "📂 Category",
+                                            "value": category.capitalize(),
+                                            "inline": True
+                                        },
+                                        {
+                                            "name": "⚡ Urgency",
+                                            "value": urgency.capitalize(),
+                                            "inline": True
+                                        },
+                                        {
+                                            "name": "📝 Summary",
+                                            "value": summary,
+                                            "inline": False
+                                        }
+                                    ],
+                                    "footer": {
+                                        "text": "SynapseSync AI"
+                                    }
+                                }
+                            ]
+                        }
+                        send_notification(webhook_url, payload)
+                except Exception as e:
+                    print(f"Error sending discord notification for user {user_id}: {e}")
+                    
+            # 10. Update last_message_id (thread-safe enough for our usecase)
+            update_last_message_id(user_id, msg_id)
+            return True
+            
+        except Exception as e:
+            print(f"Error processing single message {msg.get('id')} for user {user_id}: {e}")
+            traceback.print_exc()
+            return False
 
 def process_user_emails(user_id: int):
     """
@@ -48,85 +149,13 @@ def process_user_emails(user_id: int):
         # We want to process oldest first to update last_message_id sequentially
         messages.reverse()
         
-        for msg in messages:
-            msg_id = msg['id']
-            
-            # 4. Prevent duplicate processing using gmail_message_id
-            if is_lead_processed(msg_id):
-                continue
-                
-            body_text = msg.get('body') or msg.get('snippet') or "Empty message"
-            sender = msg.get('sender', 'Unknown')
-            
-            full_text = f"From: {sender}\n\n{body_text}"
-            
-            # 5. Clean HTML and Links to save massive amounts of tokens
-            cleaned_text = clean_email_body(full_text)
-            
-            # 6. Send clean message to Groq AI
-            ai_result = classify_lead(cleaned_text)
-            
-            # 7. Receive category, urgency, summary
-            category = ai_result.get('category', 'support')
-            urgency = ai_result.get('priority', 'low') # Our AI model returns 'priority'
-            summary = ai_result.get('summary', 'No summary available')
-            
-            # 8. Store lead in PostgreSQL
-            lead = insert_lead(
-                user_id=user_id,
-                message=cleaned_text,  # Store the cleaned text instead of raw HTML
-                category=category,
-                summary=summary,
-                urgency=urgency,
-                ai_reply=None,
-                gmail_message_id=msg_id
-            )
-            
-            # 9. Send Discord notification
-            encrypted_webhook = user.get('discord_webhook')
-            if encrypted_webhook:
-                try:
-                    webhook_url = decrypt_data(encrypted_webhook)
-                    if webhook_url:
-                        payload = {
-                            "embeds": [
-                                {
-                                    "title": "🚨 New Lead Processed",
-                                    "color": 0x3498db,
-                                    "fields": [
-                                        {
-                                            "name": "📧 From",
-                                            "value": sender,
-                                            "inline": False
-                                        },
-                                        {
-                                            "name": "📂 Category",
-                                            "value": category.capitalize(),
-                                            "inline": True
-                                        },
-                                        {
-                                            "name": "⚡ Urgency",
-                                            "value": urgency.capitalize(),
-                                            "inline": True
-                                        },
-                                        {
-                                            "name": "📝 Summary",
-                                            "value": summary,
-                                            "inline": False
-                                        }
-                                    ],
-                                    "footer": {
-                                        "text": "SynapseSync AI"
-                                    }
-                                }
-                            ]
-                        }
-                        send_notification(webhook_url, payload)
-                except Exception as e:
-                    print(f"Error decrypting or sending discord notification for user {user_id}: {e}")
-                    
-            # 10. Update last_message_id
-            update_last_message_id(user_id, msg_id)
+        # Capture current app context to pass to threads
+        app = current_app._get_current_object()
+        
+        # Process all fetched emails concurrently instead of sequentially
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(process_single_message, app, user, msg) for msg in messages]
+            concurrent.futures.wait(futures)
             
         return True
     except Exception as e:

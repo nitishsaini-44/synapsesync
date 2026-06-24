@@ -1,6 +1,9 @@
 from flask import Flask
 from flask_cors import CORS
+from flask_socketio import SocketIO
 from backend.config import Config
+
+socketio = SocketIO(cors_allowed_origins="*")
 from backend.database.db import init_db
 
 # Import route blueprints
@@ -18,6 +21,9 @@ def create_app():
 
     # Enable CORS for all domains
     CORS(app)
+
+    # Initialize SocketIO with app
+    socketio.init_app(app, async_mode='eventlet')
 
     # Register Blueprints
     app.register_blueprint(summarize_bp, url_prefix='/api')
@@ -55,4 +61,4 @@ app = create_app()
 if __name__ == '__main__':
     import os
     port = int(os.environ.get("FLASK_PORT", 5000))
-    app.run(host='0.0.0.0', port=port, debug=(app.config['FLASK_ENV'] == 'development'))
+    socketio.run(app, host='0.0.0.0', port=port, debug=(app.config['FLASK_ENV'] == 'development'))

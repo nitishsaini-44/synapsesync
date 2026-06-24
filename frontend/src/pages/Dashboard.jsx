@@ -5,6 +5,7 @@ import StatCard from '../components/StatCard';
 import RecentSummaries from '../components/RecentSummaries';
 import LeadDetailModal from '../components/LeadDetailModal';
 import { getAnalytics } from '../api/client';
+import socket from '../api/socket';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const Dashboard = () => {
@@ -27,6 +28,31 @@ const Dashboard = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const handleNewLead = (newLead) => {
+      console.log("WebSocket: New Lead Received!", newLead);
+      setStats((prevStats) => {
+        if (!prevStats) return prevStats;
+        
+        // Dynamically increment counters
+        const categoryKey = `${newLead.category}_count`;
+        
+        return {
+          ...prevStats,
+          total_processed: prevStats.total_processed + 1,
+          [categoryKey]: (prevStats[categoryKey] || 0) + 1,
+          recent_summaries: [newLead, ...prevStats.recent_summaries].slice(0, 10) // Keep top 10
+        };
+      });
+    };
+
+    socket.on('new_lead', handleNewLead);
+    
+    return () => {
+      socket.off('new_lead', handleNewLead);
+    };
+  }, []);
 
   if (loading) {
     return <div className="h-full flex items-center justify-center"><LoadingSpinner text="Loading Dashboard..." /></div>;
