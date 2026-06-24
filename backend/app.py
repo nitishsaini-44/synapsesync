@@ -23,7 +23,7 @@ def create_app():
     CORS(app)
 
     # Initialize SocketIO with app
-    socketio.init_app(app, async_mode='eventlet')
+    socketio.init_app(app, async_mode='threading')
 
     # Register Blueprints
     app.register_blueprint(summarize_bp, url_prefix='/api')
