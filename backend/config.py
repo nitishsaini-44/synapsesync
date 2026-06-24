@@ -23,5 +23,9 @@ class Config:
     GOOGLE_PUBSUB_TOPIC = os.environ.get('GOOGLE_PUBSUB_TOPIC', 'projects/synapsesync-1234/topics/gmail-push')
     
     # Celery
-    CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
-    CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+    _redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+    if _redis_url.startswith('rediss://') and 'ssl_cert_reqs' not in _redis_url:
+        _redis_url += '?ssl_cert_reqs=CERT_NONE'
+        
+    CELERY_BROKER_URL = _redis_url
+    CELERY_RESULT_BACKEND = _redis_url
