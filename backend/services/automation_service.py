@@ -4,6 +4,7 @@ from backend.utils.encryption import decrypt_data
 from backend.services.gmail_service import refresh_access_token, fetch_latest_messages
 from backend.services.ai_service import classify_lead
 from backend.services.discord_service import send_notification
+from backend.utils.email_cleaner import clean_email_body
 
 def process_user_emails(user_id: int):
     """
@@ -59,18 +60,21 @@ def process_user_emails(user_id: int):
             
             full_text = f"From: {sender}\n\n{body_text}"
             
-            # 5. Send message to Groq AI
-            ai_result = classify_lead(full_text)
+            # 5. Clean HTML and Links to save massive amounts of tokens
+            cleaned_text = clean_email_body(full_text)
             
-            # 6. Receive category, urgency, summary
+            # 6. Send clean message to Groq AI
+            ai_result = classify_lead(cleaned_text)
+            
+            # 7. Receive category, urgency, summary
             category = ai_result.get('category', 'support')
             urgency = ai_result.get('priority', 'low') # Our AI model returns 'priority'
             summary = ai_result.get('summary', 'No summary available')
             
-            # 7. Store lead in PostgreSQL
+            # 8. Store lead in PostgreSQL
             lead = insert_lead(
                 user_id=user_id,
-                message=full_text,
+                message=cleaned_text,  # Store the cleaned text instead of raw HTML
                 category=category,
                 summary=summary,
                 urgency=urgency,
@@ -78,7 +82,7 @@ def process_user_emails(user_id: int):
                 gmail_message_id=msg_id
             )
             
-            # 8. Send Discord notification
+            # 9. Send Discord notification
             encrypted_webhook = user.get('discord_webhook')
             if encrypted_webhook:
                 try:
@@ -121,7 +125,7 @@ def process_user_emails(user_id: int):
                 except Exception as e:
                     print(f"Error decrypting or sending discord notification for user {user_id}: {e}")
                     
-            # 9. Update last_message_id
+            # 10. Update last_message_id
             update_last_message_id(user_id, msg_id)
             
         return True

@@ -18,10 +18,6 @@ MODEL_NAME = "llama-3.1-8b-instant"
 
 def summarize_message(message: str) -> dict:
     """Summarizes a message and extracts urgency and category."""
-    # Truncate heavily to avoid Groq token limit errors (6k chars is ~1.5k tokens)
-    if message and len(message) > 6000:
-        message = message[:6000] + "... [TRUNCATED]"
-        
     client = get_llm_client()
     try:
         response = client.chat.completions.create(
@@ -50,10 +46,6 @@ def summarize_message(message: str) -> dict:
 
 def classify_lead(message: str) -> dict:
     """Classifies a lead into categories and priority."""
-    # Truncate heavily to avoid Groq token limit errors (6k chars is ~1.5k tokens)
-    if message and len(message) > 6000:
-        message = message[:6000] + "... [TRUNCATED]"
-        
     client = get_llm_client()
     try:
         response = client.chat.completions.create(
