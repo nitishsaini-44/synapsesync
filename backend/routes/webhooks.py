@@ -2,7 +2,6 @@ import base64
 import json
 from flask import Blueprint, request, jsonify
 from backend.database.db import get_user_by_google_email
-from backend.tasks import process_email_task
 
 webhooks_bp = Blueprint('webhooks', __name__)
 
@@ -47,6 +46,9 @@ def gmail_webhook():
             return jsonify({"status": "ignored", "reason": "automation disabled"}), 200
 
         user_id = user['id']
+
+        # Delay import to prevent circular dependency during app init
+        from backend.tasks import process_email_task
 
         # Dispatch the task to Celery
         process_email_task.delay(user_id)
