@@ -5,3 +5,5 @@ celery -A backend.celery_worker.celery_app worker --pool=solo --without-gossip -
 
 # Start Gunicorn in the foreground with reduced threads to stay under 512MB RAM
 exec gunicorn --bind 0.0.0.0:5000 --workers 1 --worker-class gthread --threads 2 backend.app:app
+
+# EOF
