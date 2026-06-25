@@ -15,6 +15,11 @@ import logging
 
 from flask import Blueprint, request, jsonify
 from backend.database.db import get_user_by_google_email
+from backend.config import Config
+import redis
+
+# Initialize Redis client for webhook deduplication/cooldown
+redis_client = redis.from_url(Config.REDIS_URL)
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +62,15 @@ def gmail_webhook():
 
         if not user.get("automation_enabled"):
             return jsonify({"status": "ignored", "reason": "automation disabled"}), 200
+
+        # Implement a 10-second cooldown using Redis to prevent Pub/Sub retry floods
+        lock_key = f"webhook_cooldown_{user['id']}"
+        if redis_client.get(lock_key):
+            logger.debug("Skipping duplicate webhook for %s (cooldown active)", google_email)
+            return jsonify({"status": "success", "reason": "cooldown"}), 200
+        
+        # Set the cooldown lock for 10 seconds
+        redis_client.setex(lock_key, 10, "1")
 
         # Delayed import to avoid circular dependency (tasks imports celery_worker which imports app)
         from backend.tasks import process_email_task  # noqa: PLC0415
