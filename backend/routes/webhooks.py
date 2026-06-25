@@ -19,7 +19,10 @@ from backend.config import Config
 import redis
 
 # Initialize Redis client for webhook deduplication/cooldown
-redis_client = redis.from_url(Config.CELERY_BROKER_URL)
+redis_kwargs = {}
+if Config.REDIS_URL.startswith("rediss://"):
+    redis_kwargs["ssl_cert_reqs"] = "none"
+redis_client = redis.from_url(Config.REDIS_URL, **redis_kwargs)
 
 logger = logging.getLogger(__name__)
 

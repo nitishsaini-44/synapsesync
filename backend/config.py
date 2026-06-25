@@ -45,7 +45,9 @@ class Config:
     GOOGLE_PUBSUB_TOPIC = os.environ.get("GOOGLE_PUBSUB_TOPIC", "")
 
     # ── Celery / Redis ───────────────────────────────────────────────────────
-    _redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    
+    _redis_url = REDIS_URL
     # Upstash uses rediss:// (TLS). Append ssl_cert_reqs=CERT_NONE for
     # compatibility — accepted risk documented here.
     if _redis_url.startswith("rediss://") and "ssl_cert_reqs" not in _redis_url:
