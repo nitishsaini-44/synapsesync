@@ -13,7 +13,6 @@ services:
     environment:
       - POSTGRES_HOST=${POSTGRES_HOST}
       - FLASK_ENV=production
-      - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL}
       # PYTHONPATH helps python find the backend module
       - PYTHONPATH=/app
     # We map the backend folder directly to /app/backend inside container for module resolution

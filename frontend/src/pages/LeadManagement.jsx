@@ -5,6 +5,7 @@ import socket from '../api/socket';
 import LoadingSpinner from '../components/LoadingSpinner';
 import UrgencyBadge from '../components/UrgencyBadge';
 import LeadDetailModal from '../components/LeadDetailModal';
+import { formatDate } from '../utils/helpers';
 
 const LeadManagement = () => {
   const [leads, setLeads] = useState([]);
@@ -34,7 +35,6 @@ const LeadManagement = () => {
 
   useEffect(() => {
     const handleNewLead = (newLead) => {
-      console.log("WebSocket: New Lead Received on Leads page!", newLead);
       setLeads((prevLeads) => {
         // If we are filtering and the new lead doesn't match the current filter, ignore it
         if (filter !== 'all' && newLead.category !== filter) {
@@ -105,9 +105,9 @@ const LeadManagement = () => {
                       {lead.category}
                     </span>
                     <UrgencyBadge level={lead.urgency} />
-                    <span className="text-xs text-muted">
-                      {new Date(lead.created_at).toLocaleString()}
-                    </span>
+                    <div className="text-sm text-muted">
+                      {formatDate(lead.created_at)}
+                    </div>
                   </div>
                   
                   {/* AI Summary */}

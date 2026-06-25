@@ -1,64 +1,37 @@
-from flask import Blueprint, request, jsonify
+"""
+routes/summarize.py
+────────────────────
+Manual summarise endpoint — used by the AI Assistant page.
+
+M1: Removed the local clean_html() function; now uses clean_email_body()
+from utils/email_cleaner.py — the single canonical implementation.
+"""
+import logging
+from flask import Blueprint, request, jsonify, g
 from backend.services.ai_service import summarize_message
-from backend.database.db import insert_lead
 from backend.utils.auth_middleware import token_required
+from backend.utils.email_cleaner import clean_email_body
 
-import re
-import html
+logger = logging.getLogger(__name__)
 
-summarize_bp = Blueprint('summarize', __name__)
+summarize_bp = Blueprint("summarize", __name__)
 
-def clean_html(raw_html):
-    if not raw_html:
-        return ""
-    # Decode HTML entities
-    text = html.unescape(raw_html)
-    # Remove style and script tags completely
-    text = re.sub(r'<style.*?</style>', ' ', text, flags=re.IGNORECASE|re.DOTALL)
-    text = re.sub(r'<script.*?</script>', ' ', text, flags=re.IGNORECASE|re.DOTALL)
-    # Remove all other HTML tags
-    text = re.sub(r'<[^>]+>', ' ', text)
-    # Normalize whitespace
-    text = re.sub(r'\s+', ' ', text).strip()
-    return text
 
-@summarize_bp.route('/summarize', methods=['POST'])
+@summarize_bp.route("/summarize", methods=["POST"])
 @token_required
-def summarize():
-    data = request.json
-    raw_message = data.get('message')
-    
-    if not raw_message:
-        return jsonify({"error": "Message is required"}), 400
+def summarize_email():
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "Request body must be JSON."}), 400
 
-    # Clean the message
-    message = clean_html(raw_message)
-    
-    # If it was just HTML structural tags with no text, fallback to raw_message
-    if not message.strip():
-        message = raw_message
+    message = (data.get("message") or "").strip()
+    if not message:
+        return jsonify({"error": "A 'message' field is required."}), 400
 
-    # 1. Call AI
-    ai_result = summarize_message(message)
-    
-    # 2. Extract data
-    summary = ai_result.get('summary', '')
-    category = ai_result.get('category', 'support')
-    urgency = ai_result.get('urgency', 'low')
-    
-    # 3. Store in DB
-    try:
-        new_lead = insert_lead(request.user_id, message, category, summary, urgency)
-        
-        # Convert datetime for JSON
-        if new_lead and 'created_at' in new_lead:
-             new_lead['created_at'] = new_lead['created_at'].isoformat()
-             
-        return jsonify({
-            "message": "Summarization successful",
-            "data": new_lead
-        }), 200
-        
-    except Exception as e:
-        print(f"DB Insert Error: {e}")
-        return jsonify({"error": "Failed to save to database"}), 500
+    if len(message) > 50_000:
+        return jsonify({"error": "Message is too large. Maximum 50,000 characters."}), 400
+
+    cleaned = clean_email_body(message)
+    result  = summarize_message(cleaned)
+
+    return jsonify({"message": "Summarization successful.", "data": result}), 200

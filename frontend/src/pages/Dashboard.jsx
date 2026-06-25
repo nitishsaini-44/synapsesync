@@ -31,7 +31,6 @@ const Dashboard = () => {
 
   useEffect(() => {
     const handleNewLead = (newLead) => {
-      console.log("WebSocket: New Lead Received!", newLead);
       setStats((prevStats) => {
         if (!prevStats) return prevStats;
         
@@ -73,10 +72,10 @@ const Dashboard = () => {
   }
 
   const chartData = [
-    { name: 'Urgent', value: stats.urgent_count, color: '#F05656' },
-    { name: 'Sales', value: stats.sales_count, color: '#D72660' },
-    { name: 'Support', value: stats.support_count, color: '#3FA46A' },
-    { name: 'Spam', value: stats.spam_count, color: '#AAAAAA' },
+    { name: 'Urgent', value: stats.urgent_count, color: '#F05656' }, /* error */
+    { name: 'Sales', value: stats.sales_count, color: '#D72660' },  /* primary */
+    { name: 'Support', value: stats.support_count, color: '#3FA46A' }, /* success */
+    { name: 'Spam', value: stats.spam_count, color: '#888888' },    /* muted */
   ].filter(item => item.value > 0);
 
   return (

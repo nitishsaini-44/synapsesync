@@ -68,7 +68,7 @@ This is the exact sequence of events from the moment an email arrives to the mom
         │    │    - Replaces all URLs with [link] placeholder       │
         │    │    - Collapses all whitespace                        │
         │    │ 4. classify_lead(cleaned_text) → Groq AI            │
-        │    │    Returns: {category, priority, summary}            │
+        │    │    Returns: {category, urgency, summary}             │
         │    │ 5. insert_lead() → PostgreSQL leads table            │
         │    │ 6. socketio.emit('new_lead', lead_data)              │
         │    │    → React Dashboard updates INSTANTLY               │
@@ -98,7 +98,6 @@ This is the exact sequence of events from the moment an email arrives to the mom
 - **Non-blocking webhook** — Flask's webhook handler calls `process_email_task.delay(user_id)` (Celery's `.delay()` method) which pushes the task ID into the Upstash Redis queue and returns instantly. Flask never blocks waiting for email processing.
 - **Crash safety** — If the Render server restarts mid-task, the task remains in Redis and Celery will pick it up again automatically on restart.
 - **Auto-retry (up to 3 times)** — The `process_email_task` is decorated with `@celery_app.task(bind=True, max_retries=3)`. Any unhandled exception (network timeout, Groq API downtime) will automatically retry after a 5-second countdown.
-- **Solo pool for memory efficiency** — The Celery worker runs with `--pool=solo` to use a single lightweight process, keeping the Render free tier (512MB RAM) stable.
 - **Upstash Serverless Redis** — Uses a `rediss://` (TLS-secured) connection with `ssl_cert_reqs=CERT_NONE` for maximum Upstash compatibility.
 
 ### 🔀 True Concurrency (ThreadPoolExecutor)
@@ -120,15 +119,15 @@ Three distinct AI functions in `backend/services/ai_service.py`:
 - `support` — How-to questions, non-critical bug reports, onboarding, feature requests
 - `spam` — Marketing, newsletters, phishing, no-reply notifications
 
-**Priority Levels:** `high` / `medium` / `low`
+**Urgency Levels:** `high` / `medium` / `low`
 
 **Conflict Resolution Rules (built into the system prompt):**
 - `urgent + sales` → always resolves to `urgent`
 - `support + sales` → always resolves to `sales`
-- `spam` → always `low` priority
+- `spam` → always `low` urgency
 - Hackathon/event notifications → `support` with `medium`
 
-All AI calls use `response_format={"type": "json_object"}` to guarantee parse-safe structured JSON responses.
+All AI calls use `response_format={"type": "json_object"}` to guarantee parse-safe structured JSON responses. The Groq client is a **module-level singleton** — created once on import, reused on every call.
 
 ### 🧹 Email Pre-Processing (Token Saver)
 Before any email is sent to Groq AI, it passes through `utils/email_cleaner.py`:
@@ -144,16 +143,18 @@ This dramatically reduces token usage and cost for every AI call.
 - The Celery Worker calls `socketio.emit('new_lead', lead_data)` directly after saving each lead.
 - The React frontend (`Dashboard.jsx` and `LeadManagement.jsx`) imports a shared `socket.js` client instance and registers `socket.on('new_lead', callback)` listeners.
 - When a new lead event is received, React **prepends** it to the state array and **increments** analytics counters — no API call or page refresh needed.
+- **CORS** is strictly scoped to `FRONTEND_URL` — the Socket.IO server rejects connections from any other origin.
 
 ### 🔒 Security & Encryption
 | Mechanism | Implementation |
 | :--- | :--- |
 | **Token Encryption at Rest** | Google Refresh Tokens and Discord Webhook URLs are encrypted using `cryptography.fernet.Fernet` (AES-256 CBC) before being stored in PostgreSQL. They are only decrypted in-memory at the moment of use. |
 | **JWT Auth** | All user-facing routes are protected by `@token_required` decorator in `utils/auth_middleware.py`. Tokens have a 24-hour expiry, signed with `SECRET_KEY`. |
+| **Rate Limiting** | `Flask-Limiter` is applied to sensitive auth endpoints (`/api/auth/login`, `/api/auth/register`) to prevent brute-force attacks. |
 | **bcrypt Password Hashing** | Registration hashes passwords with `bcrypt.hashpw()`. Login verifies with `bcrypt.checkpw()`. Plain-text passwords never touch the database. |
 | **PostgreSQL SSL** | All connections use `sslmode=require` (mandatory for Aiven Cloud). |
 | **Auto-Healing Token** | If `refresh_access_token()` fails (e.g., user revoked Gmail access), `update_user_settings(user_id, automation_enabled=False)` is called automatically, preventing infinite error loops. |
-| **Internal Route Guard** | `@require_internal_secret` checks the `X-Internal-Secret` header against `APP_API_KEY` on admin-only routes. |
+| **401 Auto-Logout** | The Axios client intercepts `401` responses globally and automatically clears localStorage and redirects to `/login`. |
 
 ### 🔔 Discord Rich Embed Notifications
 Each processed email fires a `POST` to the user's personal Discord Webhook with a rich embed payload containing:
@@ -187,9 +188,15 @@ SynapseSync/
 │   ├── app.py                     # Flask app factory
 │   │                              #  - Creates Flask app, loads Config
 │   │                              #  - Initializes Flask-SocketIO (threading mode)
-│   │                              #  - Registers all 11 Blueprint routes
+│   │                              #  - Initializes Flask-Limiter (rate limiting)
+│   │                              #  - Registers all Blueprint routes
 │   │                              #  - Calls init_db() on startup
 │   │                              #  - Exposes /health endpoint
+│   │
+│   ├── extensions.py              # Shared singleton instances
+│   │                              #  - socketio = SocketIO(...)
+│   │                              #  - limiter  = Limiter(...)
+│   │                              #  Avoids circular imports between app.py and routes
 │   │
 │   ├── celery_worker.py           # Celery application factory
 │   │                              #  - make_celery() wraps Flask app in ContextTask
@@ -203,17 +210,19 @@ SynapseSync/
 │   │                              #  - Auto-retries with 5s countdown on failure
 │   │
 │   ├── config.py                  # Environment variable loader
-│   │                              #  - SECRET_KEY, FERNET_KEY, APP_API_KEY
-│   │                              #  - DISCORD_WEBHOOK_URL, FRONTEND_URL
+│   │                              #  - SECRET_KEY, FERNET_KEY (required — crash on missing)
+│   │                              #  - FRONTEND_URL, FLASK_ENV
+│   │                              #  - POSTGRES_HOST, POSTGRES_PASSWORD (required)
 │   │                              #  - GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI
 │   │                              #  - GOOGLE_PUBSUB_TOPIC
 │   │                              #  - CELERY_BROKER_URL, CELERY_RESULT_BACKEND
 │   │                              #  - Auto-appends ssl_cert_reqs=CERT_NONE for rediss://
 │   │
 │   ├── requirements.txt           # Python dependencies
-│   │                              #  flask, flask-cors, openai, psycopg[binary,pool]
-│   │                              #  gunicorn, bcrypt, PyJWT, cryptography
-│   │                              #  beautifulsoup4, flask-socketio, celery, redis
+│   │                              #  flask, flask-cors, flask-socketio, flask-limiter
+│   │                              #  openai, psycopg[binary,pool], gunicorn
+│   │                              #  bcrypt, PyJWT, cryptography, python-dotenv
+│   │                              #  beautifulsoup4, celery, redis, requests
 │   │
 │   ├── Dockerfile                 # Docker container definition
 │   │                              #  - python:3.11-slim base
@@ -228,22 +237,25 @@ SynapseSync/
 │   ├── database/
 │   │   ├── db.py                  # PostgreSQL connection pool + all query functions
 │   │   │                          #  Pool: min_size=1, max_size=5, timeout=10
+│   │   │                          #  get_analytics() uses a SINGLE aggregation query
+│   │   │                          #  (replaces 4 round trips — optimized)
 │   │   │                          #  Functions:
 │   │   │                          #   init_db()               – runs init.sql on startup
 │   │   │                          #   create_user()           – INSERT with bcrypt hash
 │   │   │                          #   get_user_by_email()     – login lookup
 │   │   │                          #   get_user_by_google_email() – webhook lookup
 │   │   │                          #   get_user_by_id()        – general user fetch
-│   │   │                          #   update_user_settings()  – discord_webhook, automation_enabled
+│   │   │                          #   get_user_public()       – safe fetch (no secrets)
+│   │   │                          #   update_user_settings()  – discord_webhook, automation
 │   │   │                          #   update_google_tokens()  – stores encrypted refresh token
 │   │   │                          #   update_last_message_id() – deduplication pointer
 │   │   │                          #   insert_lead()           – saves classified email
-│   │   │                          #   get_all_leads()         – with optional category filter
+│   │   │                          #   get_all_leads()         – paginated, category filter
 │   │   │                          #   get_analytics()         – counts by category + urgency
-│   │   │                          #   get_active_users()      – automation_enabled + gmail connected
+│   │   │                          #   get_active_users()      – automation_enabled + gmail
 │   │   │                          #   is_lead_processed()     – checks gmail_message_id
 │   │   │
-│   │   └── init.sql               # Schema definition
+│   │   └── init.sql               # Schema definition (idempotent — safe to re-run)
 │   │                              #  - users table: id, name, email, password_hash,
 │   │                              #    google_email, google_refresh_token (encrypted),
 │   │                              #    discord_webhook (encrypted), automation_enabled,
@@ -251,14 +263,17 @@ SynapseSync/
 │   │                              #  - leads table: id, user_id, message, category,
 │   │                              #    summary, urgency, ai_reply, gmail_message_id,
 │   │                              #    created_at
+│   │                              #  - Performance indexes on user_id, category, created_at
 │   │
 │   ├── routes/
 │   │   ├── auth.py                # POST /api/auth/register (bcrypt hash, JWT return)
 │   │   │                          # POST /api/auth/login (verify hash, return JWT)
+│   │   │                          # Rate-limited: 10/minute on login, 5/minute on register
 │   │   │
 │   │   ├── oauth.py               # GET /api/google/connect (returns OAuth URL)
 │   │   │                          # GET /api/google/callback (exchanges code, stores
 │   │   │                          #   encrypted refresh token, calls watch_inbox)
+│   │   │                          # CSRF protected via 'state' param validation
 │   │   │
 │   │   ├── webhooks.py            # POST /api/webhooks/gmail
 │   │   │                          #  - Decodes base64 Pub/Sub envelope
@@ -271,6 +286,8 @@ SynapseSync/
 │   │   ├── user.py                # GET /api/user/settings (returns profile + status)
 │   │   │                          # PUT /api/user/settings (toggle automation_enabled,
 │   │   │                          #   triggers watch_inbox refresh if turned ON)
+│   │   │                          # Returns boolean flags for gmail/discord status
+│   │   │                          #   (never returns encrypted secrets to frontend)
 │   │   │
 │   │   ├── discord.py             # POST /api/discord/save
 │   │   │                          #  - Makes test POST to Discord API to validate URL
@@ -278,28 +295,27 @@ SynapseSync/
 │   │   │
 │   │   ├── classify.py            # POST /api/classify (manual mode)
 │   │   │                          #  - Calls classify_lead(message)
-│   │   │                          #  - Returns {category, priority, summary}
+│   │   │                          #  - Returns {message, data: {category, urgency, summary}}
 │   │   │
 │   │   ├── summarize.py           # POST /api/summarize (manual mode)
 │   │   │                          #  - Calls summarize_message(message)
-│   │   │                          #  - Returns {summary, category, urgency}
+│   │   │                          #  - Returns {message, data: {summary, category, urgency}}
 │   │   │
 │   │   ├── reply.py               # POST /api/generate-reply (manual mode)
 │   │   │                          #  - Calls generate_reply(message, category)
-│   │   │                          #  - Returns {reply}
+│   │   │                          #  - Returns {message, data: {reply}}
 │   │   │
 │   │   ├── leads.py               # GET /api/leads (JWT required)
 │   │   │                          #  - Optional ?category= query param filter
-│   │   │                          #  - Returns all user leads ordered by created_at DESC
+│   │   │                          #  - Server-side pagination (limit/offset)
+│   │   │                          #  - Returns paginated user leads DESC by created_at
 │   │   │
 │   │   ├── analytics.py           # GET /api/analytics (JWT required)
 │   │   │                          #  - Returns total_processed, urgent_count,
 │   │   │                          #    sales_count, support_count, spam_count,
 │   │   │                          #    recent_summaries (last 10)
 │   │   │
-│   │   └── internal.py            # X-Internal-Secret protected admin routes
-│   │                              # GET /api/users/active
-│   │                              # POST /api/process-user
+│   │   └── leads.py               # GET /api/leads (JWT required)
 │   │
 │   ├── services/
 │   │   ├── automation_service.py  # Core email processing pipeline
@@ -335,7 +351,9 @@ SynapseSync/
 │   │   │
 │   │   ├── ai_service.py          # Groq AI wrappers (OpenAI SDK)
 │   │   │                          #  Model: llama-3.1-8b-instant
-│   │   │                          #  classify_lead(message) → {category, priority, summary}
+│   │   │                          #  Singleton client — created once, reused per call
+│   │   │                          #  30s timeout on all API calls
+│   │   │                          #  classify_lead(message) → {category, urgency, summary}
 │   │   │                          #  summarize_message(message) → {summary, category, urgency}
 │   │   │                          #  generate_reply(message, category) → {reply}
 │   │   │                          #  All use response_format={"type": "json_object"}
@@ -353,8 +371,13 @@ SynapseSync/
 │       │                          #  - Collapse whitespace
 │       │
 │       ├── auth_middleware.py     # Route decorators
-│       │                          #  @token_required – JWT verification
-│       │                          #  @require_internal_secret – APP_API_KEY check
+│       │                          #  @token_required – JWT verification, sets flask.g.user_id
+│       │
+│       ├── serializers.py         # Shared JSON serialisation helpers
+│       │                          #  serialize_lead(dict) → JSON-safe dict
+│       │                          #  - Converts datetime → UTC ISO-8601 string
+│       │                          #  - Ensures timezone-aware output (Z suffix)
+│       │                          #  serialize_leads(list) → list of serialized leads
 │       │
 │       └── encryption.py         # Fernet AES-256 helpers
 │                                  #  encrypt_data(plain_text) → encrypted bytes
@@ -373,21 +396,30 @@ SynapseSync/
 │   │   │
 │   │   ├── api/
 │   │   │   ├── client.js          # Axios instance (VITE_API_URL base)
-│   │   │   │                      # Exports: getAnalytics(), getLeads(), classify(),
-│   │   │   │                      #          summarize(), generateReply(),
-│   │   │   │                      #          getUserSettings(), updateSettings(),
+│   │   │   │                      # Global 401 interceptor → auto logout + redirect
+│   │   │   │                      # Exports: getAnalytics(), getLeads(), classifyLead(),
+│   │   │   │                      #          summarizeEmail(), generateReply(),
+│   │   │   │                      #          getUserSettings(), updateUserSettings(),
 │   │   │   │                      #          getGoogleConnectUrl(), saveDiscordWebhook()
 │   │   │   │
 │   │   │   └── socket.js          # Socket.IO client singleton
 │   │   │                          # Connects to VITE_API_URL (same Render backend)
 │   │   │                          # Shared instance imported by Dashboard + LeadManagement
 │   │   │
+│   │   ├── utils/
+│   │   │   └── helpers.js         # Shared frontend utility functions
+│   │   │                          #  cleanMessageForDisplay(text) – strips HTML for display
+│   │   │                          #  formatDate(isoString) – UTC ISO → local datetime string
+│   │   │                          #    e.g. "Jun 25, 2026, 2:33 PM" (user's timezone)
+│   │   │
 │   │   ├── components/
 │   │   │   ├── AuthContext.jsx     # React Context for user auth state + JWT storage
 │   │   │   ├── Navbar.jsx          # Top navigation bar with user avatar + logout
 │   │   │   ├── StatCard.jsx        # Reusable metric card (icon, label, value, color)
 │   │   │   ├── RecentSummaries.jsx # Clickable activity feed of recent 10 leads
+│   │   │   │                       #  Uses formatDate() for consistent time display
 │   │   │   ├── LeadDetailModal.jsx # Full-screen modal: email body, AI fields, reply gen
+│   │   │   │                       #  Uses formatDate() for consistent time display
 │   │   │   ├── UrgencyBadge.jsx    # Colored pill badge for high/medium/low urgency
 │   │   │   └── LoadingSpinner.jsx  # Centered loading indicator component
 │   │   │
@@ -403,14 +435,15 @@ SynapseSync/
 │   │       │                       # - RecentSummaries feed → opens LeadDetailModal
 │   │       │
 │   │       ├── LeadManagement.jsx  # Full leads table
-│   │       │                       # - Fetches /api/leads on mount
+│   │       │                       # - Fetches /api/leads on mount (server-side pagination)
 │   │       │                       # - socket.on('new_lead') → prepend new lead instantly
 │   │       │                       # - Category filter tabs: all/urgent/sales/support/spam
 │   │       │                       # - Click row → opens LeadDetailModal
+│   │       │                       # - Uses formatDate() for timestamps
 │   │       │
 │   │       ├── AIAssistant.jsx     # Manual AI tools page (paste-and-process)
-│   │       │                       # - Summarize: calls /api/summarize
-│   │       │                       # - Classify: calls /api/classify
+│   │       │                       # - Summarize: calls /api/summarize → shows summary
+│   │       │                       # - Classify: calls /api/classify → shows category + urgency
 │   │       │                       # - Auto-Reply: calls /api/generate-reply
 │   │       │                       #   + Copy to Clipboard + Regenerate buttons
 │   │       │
@@ -418,7 +451,7 @@ SynapseSync/
 │   │                               # - Google Gmail Card: OAuth connect button,
 │   │                               #   shows connected email, Beta Access notice
 │   │                               # - Discord Webhook Card: URL input + validation,
-│   │                               #   masked display after save
+│   │                               #   masked display after save (toast notifications)
 │   │                               # - Automation Engine Card: Active/Paused badge,
 │   │                               #   toggle button (locked if Gmail not connected)
 │   │
@@ -449,24 +482,17 @@ SynapseSync/
 | `GET` | `/api/user/settings` | Returns full profile (Gmail status, Discord status, automation state) |
 | `PUT` | `/api/user/settings` | Updates `automation_enabled`. If set to `True`, refreshes Gmail `watch()` |
 | `POST` | `/api/discord/save` | Validates Discord webhook URL against Discord API, then encrypts + stores |
-| `GET` | `/api/leads` | All classified leads (optional `?category=urgent\|sales\|support\|spam`) |
+| `GET` | `/api/leads` | All classified leads (optional `?category=urgent\|sales\|support\|spam&page=N&limit=N`) |
 | `GET` | `/api/analytics` | `{total_processed, urgent_count, sales_count, support_count, spam_count, recent_summaries}` |
-| `POST` | `/api/classify` | Manual classify: `{"message": "..."}` → `{category, priority, summary}` |
-| `POST` | `/api/summarize` | Manual summarize: `{"message": "..."}` → `{summary, category, urgency}` |
-| `POST` | `/api/generate-reply` | Manual reply: `{"message": "...", "category": "..."}` → `{reply}` |
+| `POST` | `/api/classify` | Manual classify: `{"message": "..."}` → `{message, data: {category, urgency, summary}}` |
+| `POST` | `/api/summarize` | Manual summarize: `{"message": "..."}` → `{message, data: {summary, category, urgency}}` |
+| `POST` | `/api/generate-reply` | Manual reply: `{"message": "...", "category": "..."}` → `{message, data: {reply}}` |
 
 ### Webhook Endpoint *(Google Cloud Pub/Sub only)*
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `POST` | `/api/webhooks/gmail` | Receives base64-encoded Pub/Sub push notification, dispatches Celery task |
-
-### Internal Endpoints *(`X-Internal-Secret` header required)*
-
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/api/users/active` | Returns users with Gmail connected + automation enabled |
-| `POST` | `/api/process-user` | Manually triggers `process_user_emails()` for `{"user_id": N}` |
 
 ### WebSocket Events *(Socket.IO)*
 
@@ -488,6 +514,7 @@ SynapseSync/
 | **Backend Framework** | Flask | 3.1.0 |
 | **HTTP Server** | Gunicorn | 23.0.0 |
 | **Real-Time** | Flask-SocketIO | 5.4.1 |
+| **Rate Limiting** | Flask-Limiter | 3.9.0 |
 | **Task Queue** | Celery | 5.4.0 |
 | **Message Broker** | Redis (Upstash, TLS) | 5.0.3 |
 | **AI Engine** | Groq API (LLaMA 3.1-8b-instant) | openai SDK 1.63.0 |
@@ -536,16 +563,15 @@ SynapseSync/
 | `POSTGRES_DB` | Database name (e.g., `defaultdb`) |
 | `POSTGRES_USER` | Database user |
 | `POSTGRES_PASSWORD` | Database password |
-| `SECRET_KEY` | Flask secret key (any random string) |
+| `SECRET_KEY` | Flask secret key — **must be a strong random string** |
 | `FERNET_KEY` | Base64-encoded 32-byte Fernet key |
-| `APP_API_KEY` | Your Groq API key |
-| `GROQ_API_KEY` | Your Groq API key (same value) |
+| `GROQ_API_KEY` | Your Groq API key |
 | `REDIS_URL` | `rediss://default:PWD@HOST:PORT` |
 | `GOOGLE_CLIENT_ID` | Google OAuth Client ID |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth Client Secret |
 | `GOOGLE_REDIRECT_URI` | `https://YOUR-BACKEND.onrender.com/api/google/callback` |
 | `GOOGLE_PUBSUB_TOPIC` | `projects/YOUR-PROJECT/topics/gmail-push` |
-| `FRONTEND_URL` | Your Vercel frontend URL |
+| `FRONTEND_URL` | Your Vercel frontend URL (used for CORS + Socket.IO origin check) |
 
 > **Note:** `start.sh` automatically boots both Celery and Gunicorn. No manual start command change needed in Render.
 
@@ -562,6 +588,25 @@ After deployment:
 4. Toggle **Automation Enabled** to ON
 5. Send a test email to your Gmail — it should appear on the dashboard within seconds
 
+### Running Locally
+Open **three** terminal windows in the project root, then run each command in a separate window:
+
+```powershell
+# Terminal 1 — Flask Backend
+$env:PYTHONPATH="c:\path\to\project"
+.\venv\Scripts\python.exe backend\app.py
+
+# Terminal 2 — Celery Worker (requires Redis/Upstash)
+$env:PYTHONPATH="c:\path\to\project"
+.\venv\Scripts\celery.exe -A backend.celery_worker.celery_app worker --loglevel=info -P threads
+
+# Terminal 3 — React Frontend
+cd frontend
+npm run dev
+```
+
+> Make sure your `.env` file is in the project root with all required variables set.
+
 ---
 
 ## 🔒 Security Architecture
@@ -569,13 +614,15 @@ After deployment:
 | Threat | Mitigation |
 | :--- | :--- |
 | Unauthorized API access | `@token_required` enforces JWT on all user routes |
+| Brute-force login attacks | `Flask-Limiter` rate-limits auth endpoints |
 | Database breach | Google tokens and Discord URLs are AES-256 Fernet encrypted at rest |
 | Token theft/replay | JWTs expire after 24 hours, signed with secret key |
 | Password theft | `bcrypt.hashpw()` — plain text never persisted |
 | Database MITM | `sslmode=require` on all PostgreSQL connections |
 | Gmail token revocation | Auto-disables automation if refresh fails, preventing infinite error loops |
-| Webhook spoofing | Internal routes require `X-Internal-Secret` matching `APP_API_KEY` |
+| WebSocket spoofing | Socket.IO strictly checks the `FRONTEND_URL` origin — rejects all other connections |
 | SSL handshake with Redis | `ssl_cert_reqs=CERT_NONE` appended automatically for `rediss://` Upstash URLs |
+| Session hijacking | Global 401 interceptor clears localStorage and redirects to `/login` |
 
 ---
 
@@ -584,6 +631,8 @@ After deployment:
 - **Email → Dashboard latency:** ~2-5 seconds (Pub/Sub push + Celery pickup + Groq API)
 - **Token savings:** HTML stripping reduces email token size by 60-80%
 - **Concurrency:** Up to 5 emails processed in parallel per webhook
-- **Celery pool:** `--pool=solo` keeps RAM under 512MB on Render free tier
 - **DB pool:** `min_size=1, max_size=5` prevents connection exhaustion
+- **Analytics query:** Single SQL aggregation replaces 4 round trips
+- **Performance indexes:** `idx_leads_user_id`, `idx_leads_category`, `idx_leads_created_at` on the `leads` table
 - **Deduplication:** `gmail_message_id` prevents double-processing on Pub/Sub retries
+- **AI client:** Groq `OpenAI` client is a module-level singleton — no reconnection overhead per request

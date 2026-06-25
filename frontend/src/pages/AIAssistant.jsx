@@ -32,7 +32,7 @@ const AIAssistant = () => {
       
       setResult({
         type: actionType,
-        data: actionType === 'reply' ? res.data : res.data // Use nested data object
+        data: res.data
       });
     } catch (err) {
       setError(`Failed to ${actionType} message. Ensure backend is running.`);

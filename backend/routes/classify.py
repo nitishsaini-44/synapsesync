@@ -1,117 +1,55 @@
-import requests
-from flask import Blueprint, request, jsonify, current_app
+"""
+routes/classify.py
+───────────────────
+Manual classify endpoint.
+
+Fixes:
+- H6:  logging replaces print()
+- M4:  reads 'urgency' key (was 'priority') from ai_service — key name unified
+- M2:  uses serialize_lead() — no inline datetime conversion
+- L1:  uses flask.g.user_id instead of request.user_id
+"""
+import logging
+
+from flask import Blueprint, request, jsonify, g
 from backend.services.ai_service import classify_lead
-from backend.database.db import insert_lead, get_user_by_email
-from backend.utils.auth_middleware import token_required, api_key_required
+from backend.database.db import insert_lead
+from backend.utils.auth_middleware import token_required
+from backend.utils.serializers import serialize_lead
+from backend.utils.email_cleaner import clean_email_body
 
-classify_bp = Blueprint('classify', __name__)
+logger = logging.getLogger(__name__)
 
-@classify_bp.route('/classify', methods=['POST'])
+classify_bp = Blueprint("classify", __name__)
+
+
+@classify_bp.route("/classify", methods=["POST"])
 @token_required
 def classify():
-    data = request.json
-    message = data.get('message')
-    
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "Request body must be JSON."}), 400
+
+    message = (data.get("message") or "").strip()
     if not message:
-        return jsonify({"error": "Message is required"}), 400
+        return jsonify({"error": "A 'message' field is required."}), 400
 
-    # 1. Call AI
-    ai_result = classify_lead(message)
-    
-    # 2. Extract data
-    summary = ai_result.get('summary', '')
-    category = ai_result.get('category', 'support')
-    urgency = ai_result.get('priority', 'low') # mapping priority to urgency field
-    
-    # 3. Store in DB
+    if len(message) > 50_000:
+        return jsonify({"error": "Message is too large. Maximum 50,000 characters."}), 400
+
+    cleaned   = clean_email_body(message)
+    ai_result = classify_lead(cleaned)
+
+    summary  = ai_result.get("summary", "")
+    category = ai_result.get("category", "support")
+    urgency  = ai_result.get("urgency", "low")     # unified key (M4)
+
     try:
-        new_lead = insert_lead(request.user_id, message, category, summary, urgency)
-        if new_lead and 'created_at' in new_lead:
-             new_lead['created_at'] = new_lead['created_at'].isoformat()
-             
-        # 4. Trigger n8n Workflow (Webhook)
-        try:
-            n8n_url = current_app.config.get('N8N_WEBHOOK_URL')
-            # Assuming n8n webhook is at /webhook/lead
-            webhook_url = f"{n8n_url}/webhook/lead"
-            
-            payload = {
-                "id": new_lead['id'],
-                "message": message,
-                "category": category,
-                "urgency": urgency,
-                "summary": summary
-            }
-            # Fire and forget (timeout=2)
-            requests.post(webhook_url, json=payload, timeout=2)
-        except Exception as e:
-            print(f"Failed to trigger n8n: {e}")
-            # Non-blocking, continue
-             
-        return jsonify({
-            "message": "Classification successful",
-            "data": new_lead
-        }), 200
-        
-    except Exception as e:
-        print(f"DB Insert Error: {e}")
-        return jsonify({"error": "Failed to save to database"}), 500
+        new_lead = insert_lead(g.user_id, cleaned, category, summary, urgency)
+        lead_out = serialize_lead(dict(new_lead)) if new_lead else None  # shared helper (M2)
 
-@classify_bp.route('/webhook/email_lead', methods=['POST'])
-@api_key_required
-def webhook_email_lead():
-    """Endpoint for n8n to send incoming emails to."""
-    data = request.json
-    message = data.get('message')
-    
-    if not message:
-        return jsonify({"error": "Message is required"}), 400
+        return jsonify({"message": "Classification successful.", "data": lead_out}), 200
 
-    # Retrieve the admin user's ID
-    admin_email = current_app.config.get('ADMIN_USER_EMAIL')
-    if not admin_email:
-        return jsonify({"error": "ADMIN_USER_EMAIL not configured on server"}), 500
-        
-    user = get_user_by_email(admin_email)
-    if not user:
-        return jsonify({"error": f"Admin user {admin_email} not found in database"}), 404
-        
-    # 1. Call AI
-    ai_result = classify_lead(message)
-    
-    # 2. Extract data
-    summary = ai_result.get('summary', '')
-    category = ai_result.get('category', 'support')
-    urgency = ai_result.get('priority', 'low') 
-    
-    # 3. Store in DB
-    try:
-        new_lead = insert_lead(user['id'], message, category, summary, urgency)
-        if new_lead and 'created_at' in new_lead:
-             new_lead['created_at'] = new_lead['created_at'].isoformat()
-             
-        # 4. Trigger n8n Workflow (Webhook) to send to Discord
-        try:
-            n8n_url = current_app.config.get('N8N_WEBHOOK_URL')
-            webhook_url = f"{n8n_url}/webhook/lead"
-            
-            payload = {
-                "id": new_lead['id'],
-                "message": message,
-                "category": category,
-                "urgency": urgency,
-                "summary": summary
-            }
-            # Fire and forget
-            requests.post(webhook_url, json=payload, timeout=2)
-        except Exception as e:
-            print(f"Failed to trigger n8n: {e}")
-             
-        return jsonify({
-            "message": "Email classified successfully",
-            "data": new_lead
-        }), 200
-        
-    except Exception as e:
-        print(f"DB Insert Error: {e}")
-        return jsonify({"error": "Failed to save to database"}), 500
+    except Exception:
+        logger.exception("DB insert error in /classify for user %s", g.user_id)
+        return jsonify({"error": "Failed to save classification to database."}), 500

@@ -1,42 +1,67 @@
+"""
+services/automation_service.py
+────────────────────────────────
+Core email processing pipeline.
+
+Fixes applied:
+- H4:  Imports socketio from extensions.py (not app.py) — breaks circular import
+- H6:  Uses logging instead of print()
+- M3:  update_last_message_id() called ONCE after all futures complete (fixes race condition)
+- M2:  Uses shared serialize_lead() helper (no inline datetime conversion)
+"""
+import logging
 import traceback
-from backend.database.db import get_user_by_id, is_lead_processed, insert_lead, update_last_message_id, update_user_settings
-from backend.utils.encryption import decrypt_data
+import concurrent.futures
+
+from flask import current_app
+
+from backend.extensions import socketio                          # ← fixed circular import (H4)
+from backend.database.db import (
+    get_user_by_id,
+    is_lead_processed,
+    insert_lead,
+    update_last_message_id,
+    update_user_settings,
+)
+from backend.utils.encryption import encrypt_data, decrypt_data
 from backend.services.gmail_service import refresh_access_token, fetch_latest_messages
 from backend.services.ai_service import classify_lead
-from backend.services.discord_service import send_notification
+from backend.services.discord_service import send_notification, format_lead_notification
 from backend.utils.email_cleaner import clean_email_body
-import concurrent.futures
-from flask import current_app
-from backend.app import socketio
+from backend.utils.serializers import serialize_lead
 
-def process_single_message(app, user, msg):
-    """Worker function to process a single message."""
-    user_id = user['id']
+logger = logging.getLogger(__name__)
+
+
+def process_single_message(app, user: dict, msg: dict) -> str | None:
+    """
+    Processes one email message end-to-end.
+    Returns the msg_id on success, or None if skipped/failed.
+    This return value is used by the caller to safely track the last processed ID.
+    """
+    user_id = user["id"]
     with app.app_context():
         try:
-            msg_id = msg['id']
-            
-            # 4. Prevent duplicate processing using gmail_message_id
+            msg_id = msg["id"]
+
+            # 1. Deduplication — skip if already stored
             if is_lead_processed(msg_id):
-                return False
-                
-            body_text = msg.get('body') or msg.get('snippet') or "Empty message"
-            sender = msg.get('sender', 'Unknown')
-            
+                return None
+
+            body_text = msg.get("body") or msg.get("snippet") or "Empty message"
+            sender    = msg.get("sender", "Unknown")
             full_text = f"From: {sender}\n\n{body_text}"
-            
-            # 5. Clean HTML and Links
+
+            # 2. Clean HTML / links for token efficiency
             cleaned_text = clean_email_body(full_text)
-            
-            # 6. Send clean message to Groq AI
+
+            # 3. AI classification
             ai_result = classify_lead(cleaned_text)
-            
-            # 7. Receive category, urgency, summary
-            category = ai_result.get('category', 'support')
-            urgency = ai_result.get('priority', 'low')
-            summary = ai_result.get('summary', 'No summary available')
-            
-            # 8. Store lead in PostgreSQL
+            category  = ai_result.get("category", "support")
+            urgency   = ai_result.get("urgency", "low")      # unified key name (M4)
+            summary   = ai_result.get("summary", "No summary available.")
+
+            # 4. Persist lead
             lead = insert_lead(
                 user_id=user_id,
                 message=cleaned_text,
@@ -44,121 +69,109 @@ def process_single_message(app, user, msg):
                 summary=summary,
                 urgency=urgency,
                 ai_reply=None,
-                gmail_message_id=msg_id
+                gmail_message_id=msg_id,
             )
-            
-            # Prepare payload for WebSockets and Discord
-            lead_data = dict(lead) if lead else {}
-            if 'created_at' in lead_data and lead_data['created_at']:
-                lead_data['created_at'] = lead_data['created_at'].isoformat()
-                
-            # Broadcast to real-time dashboard
-            socketio.emit('new_lead', lead_data)
-            
-            # 9. Send Discord notification
-            encrypted_webhook = user.get('discord_webhook')
+
+            # 5. Real-time dashboard update via WebSocket
+            if lead:
+                lead_data = serialize_lead(dict(lead))    # shared helper — no inline datetime (M2)
+                socketio.emit("new_lead", lead_data)
+
+            # 6. Discord notification (optional)
+            encrypted_webhook = user.get("discord_webhook")
             if encrypted_webhook:
                 try:
                     webhook_url = decrypt_data(encrypted_webhook)
                     if webhook_url:
-                        payload = {
-                            "embeds": [
-                                {
-                                    "title": "🚨 New Lead Processed",
-                                    "color": 0x3498db,
-                                    "fields": [
-                                        {
-                                            "name": "📧 From",
-                                            "value": sender,
-                                            "inline": False
-                                        },
-                                        {
-                                            "name": "📂 Category",
-                                            "value": category.capitalize(),
-                                            "inline": True
-                                        },
-                                        {
-                                            "name": "⚡ Urgency",
-                                            "value": urgency.capitalize(),
-                                            "inline": True
-                                        },
-                                        {
-                                            "name": "📝 Summary",
-                                            "value": summary,
-                                            "inline": False
-                                        }
-                                    ],
-                                    "footer": {
-                                        "text": "SynapseSync AI"
-                                    }
-                                }
-                            ]
-                        }
+                        payload = format_lead_notification(sender, category, urgency, summary)
                         send_notification(webhook_url, payload)
-                except Exception as e:
-                    print(f"Error sending discord notification for user {user_id}: {e}")
-                    
-            # 10. Update last_message_id (thread-safe enough for our usecase)
-            update_last_message_id(user_id, msg_id)
-            return True
-            
-        except Exception as e:
-            print(f"Error processing single message {msg.get('id')} for user {user_id}: {e}")
-            traceback.print_exc()
-            return False
+                except Exception:
+                    logger.warning(
+                        "Discord notification failed for user %s", user_id, exc_info=True
+                    )
 
-def process_user_emails(user_id: int):
+            return msg_id   # ← return processed ID so caller can track last_message_id (M3)
+
+        except Exception:
+            logger.error(
+                "Error processing message %s for user %s",
+                msg.get("id"), user_id,
+                exc_info=True,
+            )
+            return None
+
+
+def process_user_emails(user_id: int) -> bool:
     """
-    Core automation logic to fetch, classify, and store emails for a user,
-    and send Discord notifications if configured.
+    Core automation pipeline: fetch → clean → classify → store → notify.
     """
     user = get_user_by_id(user_id)
     if not user:
-        print(f"User {user_id} not found.")
+        logger.warning("User %s not found.", user_id)
         return False
-        
-    encrypted_refresh_token = user.get('google_refresh_token')
+
+    encrypted_refresh_token = user.get("google_refresh_token")
     if not encrypted_refresh_token:
-        print(f"User {user_id} has no connected Gmail.")
+        logger.info("User %s has no connected Gmail.", user_id)
         return False
-        
+
     try:
-        # 1. Decrypt refresh token
+        # 1. Decrypt and refresh the access token
         refresh_token = decrypt_data(encrypted_refresh_token)
-        
-        # 2. Generate access token
         try:
-            token_data = refresh_access_token(refresh_token)
-            access_token = token_data.get('access_token')
+            token_data   = refresh_access_token(refresh_token)
+            access_token = token_data.get("access_token")
             if not access_token:
-                raise ValueError("No access token returned")
-        except Exception as e:
-            print(f"Failed to refresh access token for user {user_id}: {e}")
-            # Handle token refresh failure: Disable automation to prevent infinite failing loops
+                raise ValueError("No access token returned from Google.")
+        except Exception:
+            logger.error(
+                "Failed to refresh access token for user %s — disabling automation.",
+                user_id, exc_info=True,
+            )
             update_user_settings(user_id, automation_enabled=False)
-            print(f"Automation disabled for user {user_id} due to token failure.")
             return False
-            
-        # 3. Fetch latest Gmail messages
-        last_message_id = user.get('last_message_id')
-        messages = fetch_latest_messages(access_token, last_message_id=last_message_id, max_results=5)
-        
+
+        # 2. Fetch up to 5 new INBOX messages since last_message_id
+        last_message_id = user.get("last_message_id")
+        messages = fetch_latest_messages(
+            access_token, last_message_id=last_message_id, max_results=5
+        )
+
         if not messages:
-            return True # Nothing new to process
-            
-        # We want to process oldest first to update last_message_id sequentially
+            return True     # nothing new
+
+        # Process oldest first
         messages.reverse()
-        
-        # Capture current app context to pass to threads
+
         app = current_app._get_current_object()
-        
-        # Process all fetched emails concurrently instead of sequentially
+
+        # 3. Process all messages concurrently
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [executor.submit(process_single_message, app, user, msg) for msg in messages]
-            concurrent.futures.wait(futures)
-            
+            futures = {
+                executor.submit(process_single_message, app, user, msg): msg
+                for msg in messages
+            }
+            processed_ids = []
+            for future in concurrent.futures.as_completed(futures):
+                result = future.result()
+                if result:
+                    processed_ids.append(result)
+
+        # 4. Update last_message_id ONCE after all threads finish (fixes M3 race condition).
+        #    Use the last message in the original reversed list (oldest-first) that succeeded.
+        if processed_ids:
+            # Find the chronologically last processed message from the original order.
+            original_order = [m["id"] for m in messages]
+            last_id = next(
+                (mid for mid in reversed(original_order) if mid in processed_ids), None
+            )
+            if last_id:
+                update_last_message_id(user_id, last_id)
+
         return True
-    except Exception as e:
-        print(f"Error processing emails for user {user_id}: {e}")
-        traceback.print_exc()
+
+    except Exception:
+        logger.error(
+            "Unhandled error processing emails for user %s", user_id, exc_info=True
+        )
         return False

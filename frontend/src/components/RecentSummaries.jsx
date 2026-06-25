@@ -1,5 +1,7 @@
 import React from 'react';
+import { Clock } from 'lucide-react';
 import UrgencyBadge from './UrgencyBadge';
+import { formatDate } from '../utils/helpers';
 
 const RecentSummaries = ({ summaries, onItemClick }) => {
   if (!summaries || summaries.length === 0) {
@@ -47,8 +49,8 @@ const RecentSummaries = ({ summaries, onItemClick }) => {
                 <td className="px-6 py-4">
                   <UrgencyBadge level={item.urgency} />
                 </td>
-                <td className="px-6 py-4 text-muted text-sm whitespace-nowrap">
-                  {new Date(item.created_at).toLocaleDateString()}
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-muted">
+                  {formatDate(item.created_at)}
                 </td>
               </tr>
             ))}
@@ -71,8 +73,9 @@ const RecentSummaries = ({ summaries, onItemClick }) => {
                 </span>
                 <UrgencyBadge level={item.urgency} />
               </div>
-              <span className="text-xs text-muted whitespace-nowrap">
-                {new Date(item.created_at).toLocaleDateString()}
+              <span className="text-xs text-muted flex items-center gap-1.5 mt-1 sm:mt-0">
+                <Clock size={12} />
+                {formatDate(item.created_at)}
               </span>
             </div>
             <p className="text-sm text-heading leading-relaxed line-clamp-2">

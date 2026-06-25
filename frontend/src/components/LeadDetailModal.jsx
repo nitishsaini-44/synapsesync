@@ -1,80 +1,47 @@
-import React, { useEffect, useState } from 'react';
+/**
+ * components/LeadDetailModal.jsx
+ *
+ * Fixes:
+ * - M7:  Removed `lead.ai_reply = text` prop mutation — reply is now pure local state
+ * - M10: Reply is NOT auto-generated on open — user clicks "Generate Reply" on demand
+ * - L2:  cleanMessageForDisplay() imported from utils/helpers.js (no local duplication)
+ * - ESLint suppression removed — handleGenerate is wrapped in useCallback correctly
+ */
+import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Mail, Sparkles, MessageSquare, Copy, Check, Loader2, RefreshCw } from 'lucide-react';
+import {
+  X, Mail, Sparkles, MessageSquare, Copy, Check, Loader2, RefreshCw,
+} from 'lucide-react';
 import UrgencyBadge from './UrgencyBadge';
 import { generateReply } from '../api/client';
-
-// Strips HTML tags, collapses long URLs, and normalises whitespace for display only.
-// The raw lead.message is still used unchanged for AI reply generation.
-const cleanMessageForDisplay = (raw) => {
-  if (!raw) return '';
-
-  let text = raw;
-
-  // Remove <style>…</style> and <script>…</script> blocks entirely
-  text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ');
-  text = text.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ');
-
-  // Strip all remaining HTML tags
-  text = text.replace(/<[^>]+>/g, ' ');
-
-  // Decode common HTML entities
-  text = text
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ');
-
-  // Replace long URLs (> 60 chars) with a short [link] placeholder
-  text = text.replace(/https?:\/\/\S{60,}/g, '[link]');
-
-  // Collapse multiple spaces / tabs to one space
-  text = text.replace(/[ \t]+/g, ' ');
-
-  // Collapse 3+ consecutive newlines to two
-  text = text.replace(/\n{3,}/g, '\n\n');
-
-  // Trim leading/trailing whitespace from each line, then overall
-  text = text
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line, i, arr) => !(line === '' && arr[i - 1] === ''))  // remove duplicate blank lines
-    .join('\n')
-    .trim();
-
-  return text || raw; // fallback to raw if cleaning wiped everything
-};
+import { cleanMessageForDisplay, formatDate } from '../utils/helpers';
 
 const LeadDetailModal = ({ lead, onClose }) => {
-  const [copied, setCopied] = useState(null); // 'message' | 'summary' | 'reply'
-  const [aiReply, setAiReply] = useState(lead?.ai_reply || null);
+  const [copied,       setCopied]       = useState(null); // 'message' | 'summary' | 'reply'
+  const [aiReply,      setAiReply]      = useState(lead?.ai_reply || null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState(null);
+  const [error,        setError]        = useState(null);
 
-  const handleRegenerate = async () => {
+  // Reset reply state when a different lead is opened
+  useEffect(() => {
+    setAiReply(lead?.ai_reply || null);
+    setError(null);
+  }, [lead]);
+
+  // M10: reply generation is now triggered explicitly by user action — not on mount.
+  const handleGenerate = useCallback(async () => {
     setIsGenerating(true);
     setError(null);
     try {
-      const res = await generateReply(lead.message, lead.category || 'general');
-      const text = res.data?.reply || res.data;
+      const res  = await generateReply(lead.message, lead.category || 'general');
+      const text = res?.data?.reply ?? res?.reply ?? '';
       setAiReply(text);
-      lead.ai_reply = text; // Cache locally
-    } catch (err) {
-      console.error("Failed to generate reply", err);
-      setError("Failed to generate reply.");
+      // M7: NO prop mutation — local state only.
+    } catch {
+      setError('Failed to generate reply. Please try again.');
     } finally {
       setIsGenerating(false);
     }
-  };
-
-  // Generate reply if missing on mount
-  useEffect(() => {
-    if (lead && !aiReply && !isGenerating && !error) {
-      handleRegenerate();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead]);
 
   // Close on Escape key
@@ -84,7 +51,7 @@ const LeadDetailModal = ({ lead, onClose }) => {
     return () => document.removeEventListener('keydown', handleEsc);
   }, [onClose]);
 
-  // Prevent body scroll
+  // Prevent body scroll while modal is open
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = ''; };
@@ -116,8 +83,8 @@ const LeadDetailModal = ({ lead, onClose }) => {
             </span>
             <UrgencyBadge level={lead.urgency} />
             {lead.created_at && (
-              <span className="text-xs text-muted">
-                {new Date(lead.created_at).toLocaleString()}
+              <span className="text-sm font-medium text-heading">
+                {formatDate(lead.created_at)}
               </span>
             )}
           </div>
@@ -185,7 +152,7 @@ const LeadDetailModal = ({ lead, onClose }) => {
             </div>
           </section>
 
-          {/* AI Reply */}
+          {/* AI Reply — M10: lazy load, user clicks button to generate */}
           <section>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -197,12 +164,12 @@ const LeadDetailModal = ({ lead, onClose }) => {
               <div className="flex items-center gap-1.5">
                 {aiReply && (
                   <button
-                    onClick={handleRegenerate}
+                    onClick={handleGenerate}
                     disabled={isGenerating}
                     className="p-1.5 rounded-lg text-muted hover:text-heading hover:bg-gray-100 transition-colors disabled:opacity-50"
                     title="Regenerate reply"
                   >
-                    <RefreshCw size={14} className={isGenerating ? "animate-spin" : ""} />
+                    <RefreshCw size={14} className={isGenerating ? 'animate-spin' : ''} />
                   </button>
                 )}
                 {aiReply && (
@@ -224,10 +191,19 @@ const LeadDetailModal = ({ lead, onClose }) => {
                 </div>
               ) : error ? (
                 <p className="text-error text-[15px]">{error}</p>
+              ) : aiReply ? (
+                <p className="text-heading text-[15px] leading-relaxed whitespace-pre-wrap">{aiReply}</p>
               ) : (
-                <p className="text-heading text-[15px] leading-relaxed whitespace-pre-wrap">
-                  {aiReply || 'No AI reply has been generated for this message.'}
-                </p>
+                <div className="flex flex-col items-center justify-center gap-3 py-2">
+                  <p className="text-muted text-sm">No reply generated yet.</p>
+                  <button
+                    onClick={handleGenerate}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-button hover:bg-primary-hover transition-colors"
+                  >
+                    <Sparkles size={14} />
+                    Generate Reply
+                  </button>
+                </div>
               )}
             </div>
           </section>
