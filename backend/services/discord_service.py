@@ -19,6 +19,7 @@ retries = Retry(
     total=5,
     backoff_factor=1,
     status_forcelist=[429, 500, 502, 503, 504],
+    allowed_methods=["HEAD", "GET", "PUT", "DELETE", "OPTIONS", "TRACE", "POST"],
     respect_retry_after_header=True
 )
 discord_session.mount("https://", HTTPAdapter(max_retries=retries))
