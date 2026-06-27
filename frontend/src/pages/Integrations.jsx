@@ -37,6 +37,7 @@ const Integrations = () => {
   const [discordWebhook,     setDiscordWebhook]     = useState('');
   const [savingDiscord,      setSavingDiscord]      = useState(false);
   const [togglingAutomation, setTogglingAutomation] = useState(false);
+  const [changingWebhook,    setChangingWebhook]    = useState(false); // show change-URL input
   const [toast,              setToast]              = useState(null); // { message, type }
 
   const location = useLocation();
@@ -104,6 +105,8 @@ const Integrations = () => {
       setSavingDiscord(true);
       await saveDiscordWebhook(discordWebhook);
       showToast('Discord webhook connected and saved!');
+      setChangingWebhook(false);
+      setDiscordWebhook('');
       await fetchSettings();
     } catch (err) {
       showToast(
@@ -113,6 +116,11 @@ const Integrations = () => {
     } finally {
       setSavingDiscord(false);
     }
+  };
+
+  const handleCancelChange = () => {
+    setChangingWebhook(false);
+    setDiscordWebhook('');
   };
 
   const handleToggleAutomation = async () => {
@@ -230,27 +238,65 @@ const Integrations = () => {
           </div>
 
           <div className="mt-6 pt-6 border-t border-border mt-auto">
-            <label className="block text-sm font-medium text-heading mb-2">Webhook URL</label>
-            <div className="flex gap-3 flex-col sm:flex-row">
-              <input
-                type="text"
-                placeholder="https://discord.com/api/webhooks/..."
-                className="input-field flex-1"
-                value={discordWebhook}
-                onChange={(e) => setDiscordWebhook(e.target.value)}
-              />
-              <button
-                onClick={handleSaveDiscord}
-                disabled={savingDiscord || !discordWebhook}
-                className="btn-primary sm:w-auto"
-              >
-                {savingDiscord ? 'Saving...' : 'Save'}
-              </button>
-            </div>
-            {settings?.discord_webhook && (
-              <p className="text-xs text-muted mt-3">
-                Your webhook is securely encrypted. Paste a new URL to update it.
-              </p>
+            {/* ── Already connected — show change button unless editing ── */}
+            {settings?.discord_webhook && !changingWebhook ? (
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2 text-sm text-muted bg-success/5 border border-success/20 rounded-xl px-4 py-3">
+                  <CheckCircle size={15} className="text-success shrink-0" />
+                  <span>Webhook connected and encrypted securely.</span>
+                </div>
+                <button
+                  id="change-discord-webhook-btn"
+                  onClick={() => { setChangingWebhook(true); setDiscordWebhook(''); }}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-medium text-sm border border-[#5865F2]/40 text-[#5865F2] hover:bg-[#5865F2]/10 transition-all duration-200"
+                >
+                  <MessageSquare size={16} />
+                  Change Webhook URL
+                </button>
+              </div>
+            ) : (
+              /* ── New connection OR editing existing ── */
+              <div className="flex flex-col gap-3">
+                <label className="block text-sm font-medium text-heading">
+                  {settings?.discord_webhook ? 'New Webhook URL' : 'Webhook URL'}
+                </label>
+                <div className="flex gap-2 flex-col sm:flex-row">
+                  <input
+                    id="discord-webhook-input"
+                    type="text"
+                    placeholder="https://discord.com/api/webhooks/..."
+                    className="input-field flex-1"
+                    value={discordWebhook}
+                    onChange={(e) => setDiscordWebhook(e.target.value)}
+                    autoFocus
+                  />
+                  <div className="flex gap-2 sm:flex-col md:flex-row">
+                    <button
+                      id="save-discord-webhook-btn"
+                      onClick={handleSaveDiscord}
+                      disabled={savingDiscord || !discordWebhook}
+                      className="btn-primary flex-1 sm:flex-none whitespace-nowrap"
+                    >
+                      {savingDiscord ? 'Saving...' : 'Save'}
+                    </button>
+                    {settings?.discord_webhook && (
+                      <button
+                        id="cancel-discord-webhook-btn"
+                        onClick={handleCancelChange}
+                        disabled={savingDiscord}
+                        className="flex-1 sm:flex-none px-4 py-2 rounded-xl border border-border text-muted hover:text-heading hover:border-heading/30 transition-all text-sm font-medium"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p className="text-xs text-muted">
+                  {settings?.discord_webhook
+                    ? 'Paste your new Discord webhook URL. The old one will be replaced.'
+                    : 'Go to Discord → Channel Settings → Integrations → Webhooks to get your URL.'}
+                </p>
+              </div>
             )}
           </div>
         </div>
