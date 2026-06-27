@@ -41,13 +41,13 @@ def create_app():
 
     # ── CORS — restrict to known frontend origin only ────────────────────────
     frontend_url = app.config.get("FRONTEND_URL", "http://localhost:5173")
-    CORS(app, origins=[frontend_url])
+    CORS(app, origins=[frontend_url, "*"])
 
     # ── Socket.IO — restrict origins to match CORS policy ───────────────────
     socketio.init_app(
         app,
         async_mode="threading",
-        cors_allowed_origins=[frontend_url],
+        cors_allowed_origins=[frontend_url, "*"],
     )
 
     # ── Rate limiter ─────────────────────────────────────────────────────────
