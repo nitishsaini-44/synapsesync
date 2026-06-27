@@ -26,10 +26,7 @@ retries = Retry(
 )
 discord_session.mount("https://", HTTPAdapter(max_retries=retries))
 
-# Maximum seconds to wait inline before giving up on a rate-limited request.
-# Anything above this is simply skipped — we do NOT schedule deferred retries
-# because Upstash Redis ignores Celery's ETA/countdown, causing immediate
-# retry storms that make Discord's rate limit even worse.
+# Maximum seconds to wait inline before deferring to a Celery task.
 MAX_INLINE_WAIT_SECONDS = 30
 
 
@@ -71,14 +68,14 @@ def format_lead_notification(
     }
 
 
-def send_notification(webhook_url: str, payload: dict) -> bool:
+def send_notification(webhook_url: str, payload: dict) -> tuple[bool, float]:
     """
     Sends a message to a Discord webhook.
 
-    - Retries inline up to 5 times for short rate limits (≤ MAX_INLINE_WAIT_SECONDS).
-    - Logs a warning and returns False for long rate limits — no deferred retry
-      is scheduled because Upstash Redis ignores Celery ETA, causing retry storms.
-    - Returns True on success, False on any failure.
+    Returns:
+        (True,  0)           — success
+        (False, 0)           — permanent failure (bad URL / request error)
+        (False, retry_after) — rate-limited; caller should retry after retry_after seconds
     """
     for attempt in range(5):
         try:
@@ -91,13 +88,12 @@ def send_notification(webhook_url: str, payload: dict) -> bool:
                     retry_after = float(response.headers.get("Retry-After", 1))
 
                 if retry_after > MAX_INLINE_WAIT_SECONDS:
+                    # Rate limit too long to wait inline — tell caller to schedule a retry
                     logger.warning(
-                        "Discord 429: rate limit too long (%.0fs) — skipping notification. "
-                        "The webhook may be globally rate-limited. "
-                        "Use a fresh webhook URL in your account settings to restore notifications.",
+                        "Discord 429: retry_after=%.0fs — deferring to Celery task.",
                         retry_after,
                     )
-                    return False
+                    return False, retry_after
 
                 logger.warning(
                     "Discord 429: waiting %.2fs before retry (attempt %d/5).",
@@ -108,11 +104,11 @@ def send_notification(webhook_url: str, payload: dict) -> bool:
 
             response.raise_for_status()
             logger.info("Discord notification sent successfully.")
-            return True
+            return True, 0
 
         except requests.RequestException as exc:
             logger.warning("Discord notification request failed: %s", exc)
-            return False
+            return False, 0
 
     logger.error("Discord notification failed after 5 attempts.")
-    return False
+    return False, 0
