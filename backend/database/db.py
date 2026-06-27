@@ -127,7 +127,9 @@ def get_user_by_email(email: str) -> dict | None:
             cur.execute(
                 f"SELECT {_USER_ALL_COLS} FROM users WHERE email = %s", (email,)
             )
-            return cur.fetchone()
+            result = cur.fetchone()
+        conn.commit()
+        return result
     finally:
         release_connection(conn)
 
@@ -142,7 +144,9 @@ def get_user_by_google_email(google_email: str) -> dict | None:
                 f"SELECT {_USER_ALL_COLS} FROM users WHERE google_email = %s",
                 (google_email,),
             )
-            return cur.fetchone()
+            result = cur.fetchone()
+        conn.commit()
+        return result
     finally:
         release_connection(conn)
 
@@ -156,7 +160,9 @@ def get_user_by_id(user_id: int) -> dict | None:
             cur.execute(
                 f"SELECT {_USER_ALL_COLS} FROM users WHERE id = %s", (user_id,)
             )
-            return cur.fetchone()
+            result = cur.fetchone()
+        conn.commit()
+        return result
     finally:
         release_connection(conn)
 
@@ -170,7 +176,9 @@ def get_user_public(user_id: int) -> dict | None:
             cur.execute(
                 f"SELECT {_USER_PUBLIC_COLS} FROM users WHERE id = %s", (user_id,)
             )
-            return cur.fetchone()
+            result = cur.fetchone()
+        conn.commit()
+        return result
     finally:
         release_connection(conn)
 
@@ -326,7 +334,9 @@ def get_all_leads(
                     """,
                     (user_id, limit, offset),
                 )
-            return cur.fetchall()
+            result = cur.fetchall()
+        conn.commit()
+        return result
     finally:
         release_connection(conn)
 
@@ -369,6 +379,7 @@ def get_analytics(user_id: int) -> dict:
             )
             recent = cur.fetchall()
 
+        conn.commit()
         return {
             "total_processed":  counts.get("total_processed", 0),
             "urgent_count":     counts.get("urgent_count", 0),
@@ -395,7 +406,9 @@ def get_active_users() -> list[dict]:
                   AND google_refresh_token IS NOT NULL
                 """
             )
-            return cur.fetchall()
+            result = cur.fetchall()
+        conn.commit()
+        return result
     finally:
         release_connection(conn)
 
@@ -411,6 +424,8 @@ def is_lead_processed(gmail_message_id: str) -> bool:
             cur.execute(
                 "SELECT id FROM leads WHERE gmail_message_id = %s", (gmail_message_id,)
             )
-            return cur.fetchone() is not None
+            result = cur.fetchone() is not None
+        conn.commit()
+        return result
     finally:
         release_connection(conn)
