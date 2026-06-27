@@ -43,7 +43,10 @@ def validate_webhook(webhook_url: str) -> bool:
         
         response = discord_session.get(
             proxy_url, 
-            headers={"x-discord-webhook": webhook_url},
+            headers={
+                "x-discord-webhook": webhook_url,
+                "x-proxy-secret": os.getenv("PROXY_SECRET", "")
+            },
             timeout=5
         )
         return response.status_code == 200
@@ -85,7 +88,10 @@ def send_notification(webhook_url: str, payload: dict) -> bool:
         response = discord_session.post(
             proxy_url, 
             json=payload, 
-            headers={"x-discord-webhook": webhook_url},
+            headers={
+                "x-discord-webhook": webhook_url,
+                "x-proxy-secret": os.getenv("PROXY_SECRET", "")
+            },
             timeout=15
         )
         response.raise_for_status()
