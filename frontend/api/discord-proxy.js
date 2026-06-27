@@ -5,7 +5,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, x-discord-webhook'
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, x-discord-webhook, x-proxy-secret'
   );
 
   // Handle OPTIONS request
@@ -16,6 +16,15 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Security check: Verify PROXY_SECRET
+  const expectedSecret = process.env.PROXY_SECRET;
+  const providedSecret = req.headers['x-proxy-secret'];
+
+  // Only enforce if the environment variable is configured
+  if (expectedSecret && providedSecret !== expectedSecret) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid proxy secret' });
   }
 
   // Get the target Discord webhook from headers
