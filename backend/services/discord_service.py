@@ -2,9 +2,6 @@
 services/discord_service.py
 ────────────────────────────
 Discord webhook helpers.
-
-format_lead_notification() centralises the payload structure that was previously
-inlined inside automation_service.py, keeping that file cleaner.
 """
 import logging
 import time
@@ -14,8 +11,6 @@ from urllib3.util.retry import Retry
 
 logger = logging.getLogger(__name__)
 
-# Configure a session with automatic retries for server errors only.
-# 429 handling is done manually below.
 discord_session = requests.Session()
 retries = Retry(
     total=3,
@@ -26,15 +21,12 @@ retries = Retry(
 )
 discord_session.mount("https://", HTTPAdapter(max_retries=retries))
 
-# Maximum seconds to wait inline before deferring to a Celery task.
+# Maximum seconds to wait inline before giving up.
 MAX_INLINE_WAIT_SECONDS = 30
 
 
 def validate_webhook(webhook_url: str) -> bool:
-    """
-    Validates a Discord webhook URL by making a GET request.
-    Discord returns 200 with webhook details if valid.
-    """
+    """Validates a Discord webhook URL."""
     try:
         if not webhook_url.startswith("https://discord.com/api/webhooks/"):
             return False
@@ -47,10 +39,7 @@ def validate_webhook(webhook_url: str) -> bool:
 def format_lead_notification(
     sender: str, category: str, urgency: str, summary: str
 ) -> dict:
-    """
-    Builds the Discord embed payload for a processed lead notification.
-    Extracted here so automation_service.py stays free of presentation logic.
-    """
+    """Builds the Discord embed payload for a processed lead notification."""
     return {
         "embeds": [
             {
@@ -68,14 +57,15 @@ def format_lead_notification(
     }
 
 
-def send_notification(webhook_url: str, payload: dict) -> tuple[bool, float]:
+def send_notification(webhook_url: str, payload: dict) -> bool:
     """
     Sends a message to a Discord webhook.
 
-    Returns:
-        (True,  0)           — success
-        (False, 0)           — permanent failure (bad URL / request error)
-        (False, retry_after) — rate-limited; caller should retry after retry_after seconds
+    - Retries inline up to 5 times for short rate limits (≤ 30s).
+    - Logs a warning and returns False for long rate limits without retrying.
+      Celery solo pool does not honor ETA/countdown, so deferred retries
+      fire immediately and make the rate limit worse.
+    - Returns True on success, False on any failure.
     """
     for attempt in range(5):
         try:
@@ -88,12 +78,17 @@ def send_notification(webhook_url: str, payload: dict) -> tuple[bool, float]:
                     retry_after = float(response.headers.get("Retry-After", 1))
 
                 if retry_after > MAX_INLINE_WAIT_SECONDS:
-                    # Rate limit too long to wait inline — tell caller to schedule a retry
+                    # Rate limit too long — skip cleanly.
+                    # The rate limit will expire on Discord's side naturally.
+                    # The next email arriving after expiry will send normally.
+                    hours = retry_after / 3600
                     logger.warning(
-                        "Discord 429: retry_after=%.0fs — deferring to Celery task.",
-                        retry_after,
+                        "Discord webhook rate-limited for %.1fh. "
+                        "Notification skipped. Will resume automatically after rate limit expires. "
+                        "If this persists, generate a new webhook URL in Discord and update it in your account settings.",
+                        hours,
                     )
-                    return False, retry_after
+                    return False
 
                 logger.warning(
                     "Discord 429: waiting %.2fs before retry (attempt %d/5).",
@@ -104,11 +99,11 @@ def send_notification(webhook_url: str, payload: dict) -> tuple[bool, float]:
 
             response.raise_for_status()
             logger.info("Discord notification sent successfully.")
-            return True, 0
+            return True
 
         except requests.RequestException as exc:
             logger.warning("Discord notification request failed: %s", exc)
-            return False, 0
+            return False
 
     logger.error("Discord notification failed after 5 attempts.")
-    return False, 0
+    return False
