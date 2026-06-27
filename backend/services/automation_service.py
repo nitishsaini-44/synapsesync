@@ -84,7 +84,22 @@ def process_single_message(app, user: dict, msg: dict) -> str | None:
                     webhook_url = decrypt_data(encrypted_webhook)
                     if webhook_url:
                         payload = format_lead_notification(sender, category, urgency, summary)
-                        send_notification(webhook_url, payload)
+                        success, retry_after = send_notification(webhook_url, payload)
+                        if not success and retry_after > 0:
+                            # Rate-limited — schedule a deferred Celery retry
+                            import math
+                            from backend.tasks import send_discord_notification_task
+                            countdown = math.ceil(retry_after)
+                            logger.warning(
+                                "Discord rate-limited for user %s (%.0fs). "
+                                "Scheduling deferred notification in %ds.",
+                                user_id, retry_after, countdown,
+                            )
+                            send_discord_notification_task.apply_async(
+                                args=[webhook_url, payload],
+                                kwargs={"retry_after": retry_after},
+                                countdown=countdown,
+                            )
                 except Exception:
                     logger.warning(
                         "Discord notification failed for user %s", user_id, exc_info=True
