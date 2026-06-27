@@ -77,29 +77,14 @@ def process_single_message(app, user: dict, msg: dict) -> str | None:
                 lead_data = serialize_lead(dict(lead))    # shared helper — no inline datetime (M2)
                 socketio.emit("new_lead", lead_data)
 
-            # 6. Discord notification (optional)
+            # 6. Discord notification (optional — best-effort, does not block email processing)
             encrypted_webhook = user.get("discord_webhook")
             if encrypted_webhook:
                 try:
                     webhook_url = decrypt_data(encrypted_webhook)
                     if webhook_url:
                         payload = format_lead_notification(sender, category, urgency, summary)
-                        success, retry_after = send_notification(webhook_url, payload)
-                        if not success and retry_after > 0:
-                            # Rate-limited — schedule a deferred Celery retry
-                            import math
-                            from backend.tasks import send_discord_notification_task
-                            countdown = math.ceil(retry_after)
-                            logger.warning(
-                                "Discord rate-limited for user %s (%.0fs). "
-                                "Scheduling deferred notification in %ds.",
-                                user_id, retry_after, countdown,
-                            )
-                            send_discord_notification_task.apply_async(
-                                args=[webhook_url, payload],
-                                kwargs={"retry_after": retry_after},
-                                countdown=countdown,
-                            )
+                        send_notification(webhook_url, payload)
                 except Exception:
                     logger.warning(
                         "Discord notification failed for user %s", user_id, exc_info=True
