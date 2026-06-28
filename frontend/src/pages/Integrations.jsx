@@ -219,7 +219,7 @@ Best regards`);
                 <button
                   onClick={handleConnectGmail}
                   disabled={connecting}
-                  className="btn-primary w-full"
+                  className="w-full bg-primary text-white py-2.5 px-4 rounded-xl font-semibold hover:bg-primary/90 transition-all shadow-sm active:scale-[0.98] flex items-center justify-center disabled:opacity-70"
                 >
                   {connecting ? 'Connecting...' : 'Connect Gmail Account'}
                 </button>
@@ -287,7 +287,7 @@ Best regards`);
                     id="discord-webhook-input"
                     type="text"
                     placeholder="https://discord.com/api/webhooks/..."
-                    className="input-field flex-1"
+                    className="flex-1 w-full bg-transparent border border-border rounded-xl px-4 py-2.5 text-[15px] text-heading placeholder-muted/60 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                     value={discordWebhook}
                     onChange={(e) => setDiscordWebhook(e.target.value)}
                     autoFocus
@@ -297,7 +297,7 @@ Best regards`);
                       id="save-discord-webhook-btn"
                       onClick={handleSaveDiscord}
                       disabled={savingDiscord || !discordWebhook}
-                      className="btn-primary flex-1 sm:flex-none whitespace-nowrap"
+                      className="bg-primary text-white py-2 px-4 rounded-xl font-semibold hover:bg-primary/90 transition-all shadow-sm active:scale-[0.98] flex items-center justify-center disabled:opacity-70 flex-1 sm:flex-none whitespace-nowrap"
                     >
                       {savingDiscord ? 'Saving...' : 'Save'}
                     </button>
