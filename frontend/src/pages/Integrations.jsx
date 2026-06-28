@@ -204,9 +204,7 @@ const Integrations = () => {
                   <span className="font-semibold text-primary">Beta Access:</span>{' '}
                   If you aren't on the approved test list, connecting will fail.
                   <a
-                    href="https://mail.google.com/mail/?view=cm&fs=1&to=nitishsaini044@gmail.com&su=SynapseSync%20Beta%20Access%20Request"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href="mailto:nitishsaini044@gmail.com?subject=SynapseSync%20Beta%20Access%20Request"
                     className="block mt-1.5 text-primary hover:underline font-medium"
                   >
                     Request access via email &rarr;
