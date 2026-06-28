@@ -123,6 +123,29 @@ const Integrations = () => {
     setDiscordWebhook('');
   };
 
+  const handleRequestAccess = (e) => {
+    if (e) e.preventDefault();
+    const to = "nitishsaini044@gmail.com";
+    const subject = encodeURIComponent("SynapseSync Beta Access Request");
+    const body = encodeURIComponent(`Hello Nitish,
+
+I would like to request access to the SynapseSync beta.
+
+Please add the following email address to the approved testing list so I can connect my Gmail account:
+
+Email:
+
+Thank you for your time and support.
+
+Best regards`);
+
+    window.open(
+      `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${subject}&body=${body}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  };
+
   const handleToggleAutomation = async () => {
     try {
       setTogglingAutomation(true);
@@ -204,12 +227,11 @@ const Integrations = () => {
                   <span className="font-semibold text-primary">Beta Access:</span>{' '}
                   If you aren't on the approved test list, connecting will fail.
                   <a
-                    href="mailto:nitishsaini044@gmail.com?subject=SynapseSync%20Beta%20Access%20Request&body=Please%20enter%20the%20email%20address%20you%20want%20to%20connect%3A%20"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href="#"
+                    onClick={handleRequestAccess}
                     className="block mt-1.5 text-primary hover:underline font-medium"
                   >
-                    Request access via email &rarr;
+                        Request access via email &rarr;
                   </a>
                 </div>
               </div>
