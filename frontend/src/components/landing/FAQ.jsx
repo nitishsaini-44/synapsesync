@@ -5,7 +5,7 @@ import { ChevronDown } from 'lucide-react';
 const faqs = [
   {
     q: 'How does SynapseSync connect to Gmail?',
-    a: 'We use official Google OAuth 2.0 and the Gmail Push API with Google Pub/Sub. You authorize access in your Google account — we never store your Gmail password. You can revoke access any time from your Google account settings.',
+    a: 'We use Google’s official, secure login system to connect to your inbox. You sign in directly through Google, so we never see or store your Gmail password. You stay in full control and can safely disconnect your account at any time with a single click.',
   },
   {
     q: 'Which AI model powers the classification?',
@@ -17,7 +17,7 @@ const faqs = [
   },
   {
     q: 'Is my email data private and secure?',
-    a: 'Absolutely. SynapseSync processes emails to extract classification signals and does not sell or share your data. Email content is processed transiently and summaries are stored in your own PostgreSQL instance.',
+    a: 'Absolutely. While we do store your emails and sensitive information to provide our features, everything is kept strictly in an encrypted format using industry-standard security. We never sell or share your data with third parties, ensuring your privacy is always protected.',
   },
   {
     q: 'How do I get started with SynapseSync?',
@@ -25,7 +25,7 @@ const faqs = [
   },
   {
     q: 'What happens if an email is misclassified?',
-    a: 'AI classification improves over time. You can view all classified emails on your dashboard and mark corrections. Feedback helps refine future classifications.',
+    a: 'We use the highly advanced Llama 3.1 model to analyze your emails, and we are constantly refining our prompts to make the AI smarter and more accurate every single day. So don\'t worry!.',
   },
 ];
 
