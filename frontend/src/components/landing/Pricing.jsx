@@ -59,6 +59,28 @@ const plans = [
   },
 ];
 
+const handleContactSales = () => {
+  const to = "nitishsaini044@gmail.com";
+  const subject = encodeURIComponent("SynapseSync Enterprise Inquiry");
+  const body = encodeURIComponent(`Hello Nitish,
+
+We are interested in the SynapseSync Enterprise plan for our team.
+
+Please let us know how we can schedule a demo or discuss custom requirements.
+
+Company Name: 
+Team Size: 
+Specific Needs: 
+
+Thank you.`);
+
+  window.open(
+    `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${subject}&body=${body}`,
+    "_blank",
+    "noopener,noreferrer"
+  );
+};
+
 const Pricing = () => {
   return (
     <section id="pricing" className="py-20 md:py-28">
@@ -128,8 +150,8 @@ const Pricing = () => {
 
               {/* CTA */}
               {plan.name === 'Enterprise' ? (
-                <a
-                  href={plan.ctaLink}
+                <button
+                  onClick={handleContactSales}
                   className={`w-full flex items-center justify-center py-2.5 px-4 rounded-button font-semibold text-sm transition-all mb-6 ${
                     plan.highlighted
                       ? 'bg-white text-primary hover:bg-white/90'
@@ -137,7 +159,7 @@ const Pricing = () => {
                   }`}
                 >
                   {plan.cta}
-                </a>
+                </button>
               ) : (
                 <Link
                   to={plan.ctaLink}

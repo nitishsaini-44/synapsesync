@@ -2,6 +2,25 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, ExternalLink } from 'lucide-react';
 
+const handleEmailClick = () => {
+  const to = "nitishsaini044@gmail.com";
+  const subject = encodeURIComponent("SynapseSync General Inquiry");
+  const body = encodeURIComponent(`Hello Nitish,
+
+I am reaching out regarding SynapseSync.
+
+How can you help me today? 
+[Type your message here...]
+
+Thank you.`);
+
+  window.open(
+    `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${subject}&body=${body}`,
+    "_blank",
+    "noopener,noreferrer"
+  );
+};
+
 const Footer = () => {
   const year = new Date().getFullYear();
 
@@ -21,13 +40,13 @@ const Footer = () => {
               AI-powered email intelligence that classifies, summarizes, and automates your inbox workflows.
             </p>
             <div className="flex items-center gap-3 mt-5">
-              <a
-                href="mailto:nitishsaini044@gmail.com"
+              <button
+                onClick={handleEmailClick}
                 className="w-9 h-9 rounded-full bg-surface-bg border border-border flex items-center justify-center text-muted hover:text-heading hover:border-primary/30 transition-all"
                 aria-label="Email"
               >
                 <Mail size={16} />
-              </a>
+              </button>
               <a
                 href="https://facebook.com"
                 target="_blank"

@@ -152,7 +152,7 @@ const Hero = () => {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="relative hidden lg:flex flex-col items-center justify-center min-h-[420px]"
+            className="relative flex flex-col items-center justify-center min-h-[380px] lg:min-h-[420px] mt-12 lg:mt-0"
           >
             {/* Main dashboard preview card */}
             <div className="w-full max-w-sm bg-surface-card border border-border rounded-card shadow-modal p-5">
@@ -199,10 +199,10 @@ const Hero = () => {
                   y: { duration: 3, delay: 1 + card.delay, repeat: Infinity, ease: 'easeInOut' },
                 }}
                 className={`absolute flex items-center gap-2 px-3.5 py-2.5 bg-surface-card border border-border rounded-card shadow-modal text-xs font-medium text-heading ${
-                  i === 0 ? '-top-4 -left-10' :
-                  i === 1 ? 'top-16 -right-10' :
-                  i === 2 ? '-bottom-4 -left-6' :
-                  '-bottom-10 right-4'
+                  i === 0 ? '-top-4 -left-2 sm:-left-10' :
+                  i === 1 ? 'top-16 -right-2 sm:-right-10' :
+                  i === 2 ? '-bottom-4 -left-0 sm:-left-6' :
+                  '-bottom-10 right-2 sm:right-4'
                 }`}
               >
                 <div className={`w-7 h-7 rounded-xl ${card.bg} flex items-center justify-center`}>
