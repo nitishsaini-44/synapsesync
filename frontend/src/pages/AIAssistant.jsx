@@ -108,7 +108,7 @@ const AIAssistant = () => {
               <div className="w-10 h-10 rounded-2xl bg-primary-light flex items-center justify-center mb-2 group-hover:bg-primary/10 transition-colors">
                 <Sparkles className="text-primary" size={18} />
               </div>
-              <span className="text-xs md:text-sm font-medium text-body group-hover:text-primary transition-colors">Auto-Reply</span>
+              <span className="text-xs md:text-sm font-medium text-body group-hover:text-primary transition-colors">Ai-Reply</span>
             </button>
           </div>
         </div>

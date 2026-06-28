@@ -7,13 +7,14 @@ import LeadManagement from './pages/LeadManagement';
 import Integrations from './pages/Integrations';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import Landing from './pages/Landing';
 import { AuthProvider, useAuth } from './components/AuthContext';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
   const { user } = useAuth();
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/home" replace />;
   }
   return children;
 };
@@ -41,6 +42,7 @@ function App() {
       <Router>
         <Routes>
           {/* Public Routes */}
+          <Route path="/home" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           
