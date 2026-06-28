@@ -205,6 +205,8 @@ const Integrations = () => {
                   If you aren't on the approved test list, connecting will fail.
                   <a
                     href="mailto:nitishsaini044@gmail.com?subject=SynapseSync%20Beta%20Access%20Request&body=Please%20enter%20the%20email%20address%20you%20want%20to%20connect%3A%20"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="block mt-1.5 text-primary hover:underline font-medium"
                   >
                     Request access via email &rarr;
