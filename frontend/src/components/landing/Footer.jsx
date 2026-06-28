@@ -2,23 +2,21 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, ExternalLink } from 'lucide-react';
 
+import { openMail } from '../../utils/mailHelper';
+
 const handleEmailClick = () => {
-  const to = "nitishsaini044@gmail.com";
-  const subject = encodeURIComponent("SynapseSync General Inquiry");
-  const body = encodeURIComponent(`Hello Nitish,
+  openMail({
+    to: 'nitishsaini044@gmail.com',
+    subject: 'SynapseSync General Inquiry',
+    body: `Hello Nitish,
 
 I am reaching out regarding SynapseSync.
 
 How can you help me today? 
 [Type your message here...]
 
-Thank you.`);
-
-  window.open(
-    `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${subject}&body=${body}`,
-    "_blank",
-    "noopener,noreferrer"
-  );
+Thank you.`,
+  });
 };
 
 const Footer = () => {

@@ -14,6 +14,7 @@ import {
   getUserSettings, getGoogleConnectUrl, saveDiscordWebhook, updateUserSettings,
 } from '../api/client';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { openMail } from '../utils/mailHelper';
 
 // ── Inline Toast ──────────────────────────────────────────────────────────────
 const Toast = ({ message, type = 'success', onDismiss }) => (
@@ -125,9 +126,10 @@ const Integrations = () => {
 
   const handleRequestAccess = (e) => {
     if (e) e.preventDefault();
-    const to = "nitishsaini044@gmail.com";
-    const subject = encodeURIComponent("SynapseSync Beta Access Request");
-    const body = encodeURIComponent(`Hello Nitish,
+    openMail({
+      to: 'nitishsaini044@gmail.com',
+      subject: 'SynapseSync Beta Access Request',
+      body: `Hello Nitish,
 
 I would like to request access to the SynapseSync beta.
 
@@ -137,13 +139,8 @@ Email:
 
 Thank you for your time and support.
 
-Best regards`);
-
-    window.open(
-      `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${subject}&body=${body}`,
-      "_blank",
-      "noopener,noreferrer"
-    );
+Best regards`,
+    });
   };
 
   const handleToggleAutomation = async () => {

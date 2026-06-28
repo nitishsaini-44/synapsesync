@@ -143,7 +143,7 @@ const Hero = () => {
               transition={{ delay: 0.55 }}
               className="mt-5 text-xs text-muted"
             >
-              No credit card required · Gmail OAuth · Privacy first
+              No credit card required · Secure Google Login · Fully Encrypted
             </motion.p>
           </div>
 

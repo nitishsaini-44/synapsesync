@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Check, Zap, Star } from 'lucide-react';
+import { openMail } from '../../utils/mailHelper';
 
 const plans = [
   {
@@ -60,9 +61,10 @@ const plans = [
 ];
 
 const handleContactSales = () => {
-  const to = "nitishsaini044@gmail.com";
-  const subject = encodeURIComponent("SynapseSync Enterprise Inquiry");
-  const body = encodeURIComponent(`Hello Nitish,
+  openMail({
+    to: 'nitishsaini044@gmail.com',
+    subject: 'SynapseSync Enterprise Inquiry',
+    body: `Hello Nitish,
 
 We are interested in the SynapseSync Enterprise plan for our team.
 
@@ -72,13 +74,8 @@ Company Name:
 Team Size: 
 Specific Needs: 
 
-Thank you.`);
-
-  window.open(
-    `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${subject}&body=${body}`,
-    "_blank",
-    "noopener,noreferrer"
-  );
+Thank you.`,
+  });
 };
 
 const Pricing = () => {
