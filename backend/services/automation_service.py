@@ -13,6 +13,7 @@ import logging
 import traceback
 import concurrent.futures
 
+import requests
 from flask import current_app
 
 from backend.extensions import socketio                          # ← fixed circular import (H4)
@@ -22,6 +23,7 @@ from backend.database.db import (
     insert_lead,
     update_last_message_id,
     update_user_settings,
+    update_google_tokens,
 )
 from backend.utils.encryption import encrypt_data, decrypt_data
 from backend.services.gmail_service import refresh_access_token, fetch_latest_messages
@@ -123,6 +125,26 @@ def process_user_emails(user_id: int) -> bool:
             access_token = token_data.get("access_token")
             if not access_token:
                 raise ValueError("No access token returned from Google.")
+        except requests.exceptions.HTTPError as http_err:
+            # 400 = Google has permanently invalidated this refresh token
+            # (happens after 7 days in Testing mode, or if the user revoked access).
+            # Clear the dead token so the frontend shows "Disconnected" and
+            # prompts the user to reconnect from the Integrations page.
+            if http_err.response is not None and http_err.response.status_code == 400:
+                logger.error(
+                    "Refresh token permanently expired for user %s — "
+                    "clearing token and disabling automation.",
+                    user_id, exc_info=True,
+                )
+                update_user_settings(user_id, automation_enabled=False)
+                update_google_tokens(user_id, None, None)   # wipes token + google_connected_at
+            else:
+                logger.error(
+                    "HTTP error refreshing token for user %s — disabling automation.",
+                    user_id, exc_info=True,
+                )
+                update_user_settings(user_id, automation_enabled=False)
+            return False
         except Exception:
             logger.error(
                 "Failed to refresh access token for user %s — disabling automation.",

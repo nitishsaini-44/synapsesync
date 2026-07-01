@@ -10,6 +10,7 @@ Fixes:
 - Audit: returns is_discord_connected boolean instead of encrypted webhook value
 """
 import logging
+import datetime
 from flask import Blueprint, jsonify, request, current_app, g
 from backend.database.db import get_user_by_id, update_user_settings
 from backend.utils.auth_middleware import token_required
@@ -17,6 +18,39 @@ from backend.services.gmail_service import refresh_access_token, watch_inbox
 from backend.utils.encryption import decrypt_data
 
 logger = logging.getLogger(__name__)
+
+
+# ── Reconnect-window helper ──────────────────────────────────────────────────
+
+def _needs_reconnect(user: dict) -> bool:
+    """
+    Returns True when:
+      1. The user has a Google refresh token, AND
+      2. google_connected_at was set >= 6 days ago.
+
+    Returning True on Day 6 (not 7) gives the user a 24-hour buffer before
+    Google hard-expires the token.
+
+    Falls back to False if google_connected_at is NULL — this handles existing
+    users who connected before this column was added (they should reconnect
+    once to seed the timestamp).
+    """
+    if not user.get("google_refresh_token"):
+        return False
+
+    connected_at = user.get("google_connected_at")
+    if not connected_at:
+        # No timestamp yet → treat as needing reconnect so user seeds the column
+        return True
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    # psycopg returns naive datetimes for TIMESTAMP (no TZ) columns — make aware
+    if connected_at.tzinfo is None:
+        connected_at = connected_at.replace(tzinfo=datetime.timezone.utc)
+
+    days_elapsed = (now - connected_at).days
+    return days_elapsed >= 6
 
 user_bp = Blueprint("user", __name__)
 
@@ -38,6 +72,8 @@ def get_settings():
                 # Return a boolean flag — never return the encrypted value to the frontend
                 "discord_webhook":    bool(user["discord_webhook"]),
                 "automation_enabled": user["automation_enabled"],
+                # Reconnect warning: True when >= 6 days have passed since Google connect
+                "needs_google_reconnect": _needs_reconnect(user),
             }
         }), 200
     except Exception:

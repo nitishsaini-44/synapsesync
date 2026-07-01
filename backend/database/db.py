@@ -86,7 +86,8 @@ _USER_PUBLIC_COLS = """
 _USER_ALL_COLS = """
     id, name, email, password_hash, google_email,
     google_refresh_token, discord_webhook,
-    automation_enabled, last_message_id, created_at
+    automation_enabled, last_message_id,
+    google_connected_at, created_at
 """
 
 
@@ -219,6 +220,12 @@ def update_user_settings(user_id: int, discord_webhook=None, automation_enabled=
 def update_google_tokens(
     user_id: int, google_email: str | None, google_refresh_token: str | None
 ) -> dict | None:
+    """
+    Saves or clears Google OAuth tokens for a user.
+    - When google_refresh_token is provided: sets google_connected_at = NOW()
+      so we can track the 6-day reconnect window.
+    - When google_refresh_token is None (disconnect): clears google_connected_at.
+    """
     conn = None
     try:
         conn = get_connection()
@@ -226,11 +233,16 @@ def update_google_tokens(
             cur.execute(
                 """
                 UPDATE users
-                SET google_email = %s, google_refresh_token = %s
+                SET google_email          = %s,
+                    google_refresh_token  = %s,
+                    google_connected_at   = CASE
+                        WHEN %s IS NOT NULL THEN CURRENT_TIMESTAMP
+                        ELSE NULL
+                    END
                 WHERE id = %s
                 RETURNING *
                 """,
-                (google_email, google_refresh_token, user_id),
+                (google_email, google_refresh_token, google_refresh_token, user_id),
             )
             updated = cur.fetchone()
             conn.commit()

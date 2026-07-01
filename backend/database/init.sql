@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
     discord_webhook      TEXT,
     automation_enabled   BOOLEAN       DEFAULT FALSE,
     last_message_id      VARCHAR(255),
+    google_connected_at  TIMESTAMP,
     created_at           TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
     updated_at           TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
 );
