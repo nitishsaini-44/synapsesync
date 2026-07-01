@@ -230,20 +230,31 @@ def update_google_tokens(
     try:
         conn = get_connection()
         with conn.cursor(row_factory=dict_row) as cur:
-            cur.execute(
-                """
-                UPDATE users
-                SET google_email          = %s,
-                    google_refresh_token  = %s,
-                    google_connected_at   = CASE
-                        WHEN %s IS NOT NULL THEN CURRENT_TIMESTAMP
-                        ELSE NULL
-                    END
-                WHERE id = %s
-                RETURNING *
-                """,
-                (google_email, google_refresh_token, google_refresh_token, user_id),
-            )
+            if google_refresh_token is not None:
+                cur.execute(
+                    """
+                    UPDATE users
+                    SET google_email          = %s,
+                        google_refresh_token  = %s,
+                        google_connected_at   = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                    RETURNING *
+                    """,
+                    (google_email, google_refresh_token, user_id),
+                )
+            else:
+                cur.execute(
+                    """
+                    UPDATE users
+                    SET google_email          = %s,
+                        google_refresh_token  = %s,
+                        google_connected_at   = NULL
+                    WHERE id = %s
+                    RETURNING *
+                    """,
+                    (google_email, google_refresh_token, user_id),
+                )
+
             updated = cur.fetchone()
             conn.commit()
             return updated
