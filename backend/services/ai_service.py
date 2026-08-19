@@ -17,7 +17,7 @@ from openai import OpenAI
 logger = logging.getLogger(__name__)
 
 # ── Groq model ───────────────────────────────────────────────────────────────
-MODEL_NAME = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
+MODEL_NAME = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
 
 # ── Singleton LLM client (created once at module import time) ─────────────────
 _llm_client: OpenAI | None = None
