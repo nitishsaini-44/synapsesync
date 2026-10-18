@@ -631,54 +631,84 @@ This is a **one-time reconnect** per user. After reconnecting, tokens stay valid
 2. Add environment variable: `VITE_API_URL` = `https://your-backend.onrender.com`
 3. Vercel uses `vercel.json` to handle SPA routing automatically
 
-### Step 5: Daily Gmail Watch Renewal — Render Cron Job
+### Step 5: Daily Gmail Watch Renewal — In-Process Scheduler
 
-Gmail push-notification watch subscriptions expire after **7 days**. SynapseSync renews them automatically via a separate daily Render Cron Job — no scheduler runs inside the web process.
+Gmail push-notification watch subscriptions expire after **7 days**. SynapseSync renews them automatically using an **APScheduler 3.x BackgroundScheduler** that runs inside the existing Flask/Gunicorn process — **no separate Render Cron Job is needed**.
 
-#### Create the Cron Job on Render
+#### How it works
 
-1. In the Render dashboard, click **New → Cron Job**.
-2. Connect the **same GitHub repository** as the web service.
-3. Set the **Build Command** to: `pip install -r backend/requirements.txt`
-4. Set the **Start Command** to:
-   ```
-   python -m backend.renew_gmail_watches
-   ```
-5. Set the **Schedule** (daily at 2 AM UTC): `0 2 * * *`
-6. Set the **same environment variables** as the web service:
+The scheduler is initialised once inside `create_app()` (in `backend/app.py`) via `init_gmail_watch_scheduler(app)`.
+
+| Property | Value |
+| :--- | :--- |
+| Schedule | Daily at **03:00 Asia/Kolkata** (21:30 UTC) |
+| Trigger type | `CronTrigger(hour=3, minute=0, timezone=ZoneInfo("Asia/Kolkata"))` |
+| Concurrent runs | `max_instances=1` (no overlapping executions) |
+| Missed triggers | `coalesce=True` + `misfire_grace_time=3600` (fires within 1 h of restart) |
+| Duplicate prevention | Module-level `_scheduler_started` flag — idempotent across Flask reloads |
+
+> **Why no distributed lock is needed:** `start.sh` runs Gunicorn with `--workers 1`. Only one worker process ever exists, so APScheduler's own `max_instances=1` is sufficient.
+
+#### Enable in Render
+
+Add **one new environment variable** to your Render web service:
+
+| Variable | Value | Notes |
+| :--- | :--- | :--- |
+| `ENABLE_GMAIL_WATCH_SCHEDULER` | `true` | Absent or any other value → scheduler not started |
+
+All other required variables are already set for the web service (see the full table below).
+
+#### Required Render environment variables (web service)
 
 | Variable | Required | Notes |
 | :--- | :--- | :--- |
-| `SECRET_KEY` | ✅ | Same as web service |
-| `FERNET_KEY` | ✅ | Used to decrypt stored tokens |
-| `POSTGRES_HOST` | ✅ | |
-| `POSTGRES_PORT` | ✅ | |
-| `POSTGRES_DB` | ✅ | |
-| `POSTGRES_USER` | ✅ | |
-| `POSTGRES_PASSWORD` | ✅ | |
+| `SECRET_KEY` | ✅ | Flask session signing key |
+| `FERNET_KEY` | ✅ | AES-256 key for token encryption |
+| `POSTGRES_HOST` | ✅ | Aiven PostgreSQL host |
+| `POSTGRES_PORT` | ✅ | Default: `5432` |
+| `POSTGRES_DB` | ✅ | Database name |
+| `POSTGRES_USER` | ✅ | Database user |
+| `POSTGRES_PASSWORD` | ✅ | Database password |
 | `POSTGRES_SSLMODE` | ✅ | `require` (Aiven default) |
-| `GOOGLE_CLIENT_ID` | ✅ | Used to refresh access tokens |
-| `GOOGLE_CLIENT_SECRET` | ✅ | Used to refresh access tokens |
-| `GOOGLE_REDIRECT_URI` | ✅ | Must match registered URI |
-| `GOOGLE_PUBSUB_TOPIC` | ✅ | Full Pub/Sub topic name |
-| `REDIS_URL` | Optional | Loaded by Config, not used by this job |
-| `FRONTEND_URL` | Optional | Loaded by Config, not used by this job |
+| `GOOGLE_CLIENT_ID` | ✅ | Google OAuth 2.0 Client ID |
+| `GOOGLE_CLIENT_SECRET` | ✅ | Google OAuth 2.0 Client Secret |
+| `GOOGLE_REDIRECT_URI` | ✅ | Must match URI registered in Google Cloud Console |
+| `GOOGLE_PUBSUB_TOPIC` | ✅ | Full Pub/Sub topic: `projects/<proj>/topics/<name>` |
+| `REDIS_URL` | ✅ | Upstash Redis URL for Celery |
+| `ENABLE_GMAIL_WATCH_SCHEDULER` | ✅ | Set to `true` to activate the scheduler |
+| `FRONTEND_URL` | Optional | Used for CORS and OAuth redirects |
+| `GROQ_API_KEY` | ✅ | Groq API key for AI classification |
 
 #### Behaviour
-- Queries all users with `automation_enabled = TRUE` and a stored refresh token.
-- Decrypts each token → gets a fresh access token → calls `gmail.users.watch()`.
-- Logs the watch expiration timestamp returned by Google.
-- **One user's failure never blocks others** — per-user isolation.
-- **Permanent revocations** (`invalid_grant`) disable automation and clear the token.
-- **Transient failures** (network errors, Google 5xx) skip that user; token is preserved.
-- **Safe to re-run** — `watch()` is idempotent.
 
-#### Test locally
+- Queries all users with `automation_enabled = TRUE` and a stored Google refresh token via `get_users_for_watch_renewal()`.
+- Decrypts each refresh token (Fernet) → exchanges for a fresh access token → calls `watch_inbox(access_token, topic_name)`.
+- Logs the watch expiration timestamp (in ms) returned by Google for each user.
+- **Per-user isolation** — one user's failure never blocks others.
+- **Permanent revocations** (`HTTP 400 + invalid_grant`) → calls `mark_gmail_needs_reauth()` to clear token and disable automation. Frontend shows reconnect prompt.
+- **Transient failures** (5xx, timeouts, rate limits) → logs warning, skips user, token preserved. Retried on next daily run.
+- **watch() failures** (Pub/Sub quota, topic misconfigured) → logs warning, token NOT cleared. Retried tomorrow.
+- Renewal job **never** processes emails, enqueues Celery tasks, or sends Discord notifications.
+
+#### Disabled in tests and local dev
+
+When `ENABLE_GMAIL_WATCH_SCHEDULER` is absent (or not `true`), the scheduler silently does nothing. Your local Flask dev server and Celery worker are unaffected.
+
+#### Fallback: standalone renewal script
+
+If you prefer a separate Render Cron Job instead, the standalone script `backend/renew_gmail_watches.py` still works:
+
 ```powershell
+# Local test
 $env:PYTHONPATH="c:\path\to\synapsesync"
-.\\venv\\Scripts\\python.exe -m backend.renew_gmail_watches
+.\venv\Scripts\python.exe -m backend.renew_gmail_watches
 ```
 
+Render Cron Job command: `python -m backend.renew_gmail_watches`  
+Schedule: `0 21 * * *` (21:00 UTC = 02:30 IST ≈ before the 03:00 IST in-process run)
+
+> **Do not run both simultaneously** — they are independent and would double-renew watches. Use one or the other.
 
 
 ### Step 5: Activate Per-User Pipeline

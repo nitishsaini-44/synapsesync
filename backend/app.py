@@ -15,6 +15,7 @@ from backend.config import Config
 from backend.extensions import socketio                    # single source (fixes circular import)
 from backend.database.db import init_db
 from backend.utils.auth_middleware import limiter          # rate-limiter singleton
+from backend.services.gmail_watch_scheduler import init_gmail_watch_scheduler
 
 # ── Route blueprints ────────────────────────────────────────────────────────
 from backend.routes.summarize import summarize_bp
@@ -75,6 +76,12 @@ def create_app():
     @app.route("/health")
     def health_check():
         return {"status": "healthy"}, 200
+
+    # ── Gmail watch renewal scheduler ───────────────────────────────────────
+    # Only starts when ENABLE_GMAIL_WATCH_SCHEDULER=true.
+    # Must be initialised AFTER all extensions so db/config are ready.
+    # The scheduler module guards against duplicate initialisation itself.
+    init_gmail_watch_scheduler(app)
 
     return app
 
