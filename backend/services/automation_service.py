@@ -8,6 +8,11 @@ Fixes applied:
 - H6:  Uses logging instead of print()
 - M3:  update_last_message_id() called ONCE after all futures complete (fixes race condition)
 - M2:  Uses shared serialize_lead() helper (no inline datetime conversion)
+- P2:  Token refresh error handling refined:
+         Permanent revocation  (HTTP 400, error=invalid_grant) → clear token, disable automation.
+         Transient API failure (any other HTTP error / network error)   → log and return False.
+         The token is never cleared on transient failures, so a brief Google API outage
+         does not force users to reconnect.
 """
 import logging
 import traceback
@@ -23,7 +28,7 @@ from backend.database.db import (
     insert_lead,
     update_last_message_id,
     update_user_settings,
-    update_google_tokens,
+    mark_gmail_needs_reauth,
 )
 from backend.utils.encryption import encrypt_data, decrypt_data
 from backend.services.gmail_service import refresh_access_token, fetch_latest_messages
@@ -33,6 +38,32 @@ from backend.utils.email_cleaner import clean_email_body
 from backend.utils.serializers import serialize_lead
 
 logger = logging.getLogger(__name__)
+
+
+def _is_permanent_auth_failure(http_err: requests.exceptions.HTTPError) -> bool:
+    """
+    Returns True if the HTTP error from Google's token endpoint indicates a
+    *permanent* revocation (the refresh token is dead and must be discarded).
+
+    Google returns HTTP 400 with JSON body {"error": "invalid_grant"} for:
+      - Refresh tokens older than 6 months of inactivity (non-testing mode)
+      - Tokens explicitly revoked by the user in Google Account settings
+      - Testing-mode tokens that have expired (7 days)
+      - Second authorisation without prompt=consent (should not happen here)
+
+    Any other HTTP status code (500, 503, rate-limit 429, etc.) is treated as
+    a transient failure and should NOT clear the stored token.
+    """
+    if http_err.response is None:
+        return False
+    if http_err.response.status_code != 400:
+        return False
+    try:
+        body = http_err.response.json()
+        return body.get("error") == "invalid_grant"
+    except Exception:
+        # Malformed response — treat conservatively as non-permanent.
+        return False
 
 
 def process_single_message(app, user: dict, msg: dict) -> str | None:
@@ -126,31 +157,32 @@ def process_user_emails(user_id: int) -> bool:
             if not access_token:
                 raise ValueError("No access token returned from Google.")
         except requests.exceptions.HTTPError as http_err:
-            # 400 = Google has permanently invalidated this refresh token
-            # (happens after 7 days in Testing mode, or if the user revoked access).
-            # Clear the dead token so the frontend shows "Disconnected" and
-            # prompts the user to reconnect from the Integrations page.
-            if http_err.response is not None and http_err.response.status_code == 400:
+            if _is_permanent_auth_failure(http_err):
+                # Permanent revocation — clear token and disable automation so
+                # the frontend shows "Disconnected" and the user must reconnect.
                 logger.error(
-                    "Refresh token permanently expired for user %s — "
+                    "Refresh token permanently revoked for user %s (invalid_grant) — "
                     "clearing token and disabling automation.",
-                    user_id, exc_info=True,
+                    user_id,
                 )
-                update_user_settings(user_id, automation_enabled=False)
-                update_google_tokens(user_id, None, None)   # wipes token + google_connected_at
+                mark_gmail_needs_reauth(user_id)
             else:
-                logger.error(
-                    "HTTP error refreshing token for user %s — disabling automation.",
-                    user_id, exc_info=True,
+                # Transient error (Google 5xx, rate-limit, network hiccup) — do NOT
+                # clear the token.  Just skip this processing cycle.
+                logger.warning(
+                    "Transient HTTP error refreshing token for user %s (status=%s) — "
+                    "skipping this cycle; token preserved.",
+                    user_id,
+                    http_err.response.status_code if http_err.response is not None else "N/A",
                 )
-                update_user_settings(user_id, automation_enabled=False)
             return False
         except Exception:
-            logger.error(
-                "Failed to refresh access token for user %s — disabling automation.",
+            # Non-HTTP error (e.g. connection timeout) — treat as transient.
+            logger.warning(
+                "Non-HTTP error refreshing token for user %s — "
+                "skipping this cycle; token preserved.",
                 user_id, exc_info=True,
             )
-            update_user_settings(user_id, automation_enabled=False)
             return False
 
         # 2. Fetch up to 5 new INBOX messages since last_message_id

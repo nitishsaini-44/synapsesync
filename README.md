@@ -537,14 +537,65 @@ SynapseSync/
 3. **Upstash** Serverless Redis database (free tier: 10,000 commands/day)
 4. **Discord Server** with a Webhook URL per user
 
-### Step 1: Google Cloud Setup
+### Step 1: Google Cloud OAuth Setup (Production)
+
+#### 1a. Basic setup
 1. Create a project at [console.cloud.google.com](https://console.cloud.google.com)
 2. Enable **Gmail API** and **Cloud Pub/Sub API**
-3. Create OAuth 2.0 credentials (Web Application type)
-4. Add your Render backend URL to **Authorized Redirect URIs**: `https://your-backend.onrender.com/api/google/callback`
-5. Create a Pub/Sub **Topic** (e.g., `projects/your-project/topics/gmail-push`)
-6. Create a **Push Subscription** pointing to: `https://your-backend.onrender.com/api/webhooks/gmail`
-7. Grant `gmail-api-push@system.gserviceaccount.com` the `Pub/Sub Publisher` role on the topic
+3. Create **OAuth 2.0 credentials** (Web Application type)
+4. Add your Render backend URL to **Authorized Redirect URIs**:
+   ```
+   https://your-backend.onrender.com/api/google/callback
+   ```
+   Also add `http://localhost:5000/api/google/callback` for local development.
+
+#### 1b. Publishing status and verification
+
+> **Important:** While the OAuth app is in *Testing* mode, Google restricts access to up to 100 approved test users and **issues refresh tokens that expire after 7 days**. To allow any user to connect Gmail without expiry, you must publish your app and — if requesting sensitive scopes — pass Google's OAuth verification process.
+
+**Step-by-step for production publishing:**
+
+1. In the Google Cloud Console, go to **APIs & Services → OAuth consent screen**.
+2. Under **Publishing status**, click **Publish App**.
+3. If your app uses the `gmail.readonly` scope (which SynapseSync does), it is classified as **sensitive**. Google will require you to submit for verification:
+   - **App name, logo, and homepage URL** (must match your Vercel domain).
+   - **Privacy Policy URL** — must be publicly accessible.
+   - **Terms of Service URL** (optional but recommended).
+   - **Authorised domains** — add your Vercel domain (e.g., `synapsesync-sam.vercel.app`).
+   - A **demo video** showing how the app uses Gmail data (typically a 1–3 min Loom recording).
+   - Justification for why the scope is needed.
+4. Submit for verification. Google typically takes **3–5 business days** for sensitive scopes and may request revisions.
+5. Until verification is approved, the OAuth consent screen will show an "unverified app" warning, but any user can still click "Advanced → Go to [app] (unsafe)" to proceed. All functionality works; only the warning is shown.
+
+> **While waiting for verification:** Add specific Gmail addresses to the **Test Users** list in the OAuth consent screen. Those users get full refresh tokens without the 7-day expiry, even in Testing mode.
+
+> **After verification:** All Google accounts can connect without restrictions or expiry.
+
+#### 1c. Pub/Sub setup
+1. Create a Pub/Sub **Topic** (e.g., `projects/your-project/topics/gmail-push`)
+2. Create a **Push Subscription** pointing to:
+   ```
+   https://your-backend.onrender.com/api/webhooks/gmail
+   ```
+3. Grant `gmail-api-push@system.gserviceaccount.com` the **Pub/Sub Publisher** role on the topic
+
+---
+
+### Step 1b: One-Time Reconnect for Previously Expired Users
+
+> **Who this affects:** Users who connected Gmail while the app was in Google's Testing mode have 7-day expiring refresh tokens. Those tokens become permanently invalid (`invalid_grant`) after the 7-day window.
+
+When these users' tokens are detected as permanently revoked (during email processing or watch renewal), automation is automatically disabled and `google_refresh_token` is cleared. The frontend will show Gmail as **Disconnected**.
+
+**What to tell affected users:**
+1. Go to the **Integrations** page.
+2. Click **Connect Gmail Account** (the button appears since the token was cleared).
+3. Complete the OAuth flow — a fresh, long-lived refresh token is issued.
+4. Toggle **Automation** back to ON.
+
+This is a **one-time reconnect** per user. After reconnecting, tokens stay valid indefinitely.
+
+
 
 ### Step 2: Upstash Redis
 1. Go to [upstash.com](https://upstash.com/) and create a free Redis database
@@ -579,6 +630,56 @@ SynapseSync/
 1. Connect the `frontend` directory to Vercel
 2. Add environment variable: `VITE_API_URL` = `https://your-backend.onrender.com`
 3. Vercel uses `vercel.json` to handle SPA routing automatically
+
+### Step 5: Daily Gmail Watch Renewal — Render Cron Job
+
+Gmail push-notification watch subscriptions expire after **7 days**. SynapseSync renews them automatically via a separate daily Render Cron Job — no scheduler runs inside the web process.
+
+#### Create the Cron Job on Render
+
+1. In the Render dashboard, click **New → Cron Job**.
+2. Connect the **same GitHub repository** as the web service.
+3. Set the **Build Command** to: `pip install -r backend/requirements.txt`
+4. Set the **Start Command** to:
+   ```
+   python -m backend.renew_gmail_watches
+   ```
+5. Set the **Schedule** (daily at 2 AM UTC): `0 2 * * *`
+6. Set the **same environment variables** as the web service:
+
+| Variable | Required | Notes |
+| :--- | :--- | :--- |
+| `SECRET_KEY` | ✅ | Same as web service |
+| `FERNET_KEY` | ✅ | Used to decrypt stored tokens |
+| `POSTGRES_HOST` | ✅ | |
+| `POSTGRES_PORT` | ✅ | |
+| `POSTGRES_DB` | ✅ | |
+| `POSTGRES_USER` | ✅ | |
+| `POSTGRES_PASSWORD` | ✅ | |
+| `POSTGRES_SSLMODE` | ✅ | `require` (Aiven default) |
+| `GOOGLE_CLIENT_ID` | ✅ | Used to refresh access tokens |
+| `GOOGLE_CLIENT_SECRET` | ✅ | Used to refresh access tokens |
+| `GOOGLE_REDIRECT_URI` | ✅ | Must match registered URI |
+| `GOOGLE_PUBSUB_TOPIC` | ✅ | Full Pub/Sub topic name |
+| `REDIS_URL` | Optional | Loaded by Config, not used by this job |
+| `FRONTEND_URL` | Optional | Loaded by Config, not used by this job |
+
+#### Behaviour
+- Queries all users with `automation_enabled = TRUE` and a stored refresh token.
+- Decrypts each token → gets a fresh access token → calls `gmail.users.watch()`.
+- Logs the watch expiration timestamp returned by Google.
+- **One user's failure never blocks others** — per-user isolation.
+- **Permanent revocations** (`invalid_grant`) disable automation and clear the token.
+- **Transient failures** (network errors, Google 5xx) skip that user; token is preserved.
+- **Safe to re-run** — `watch()` is idempotent.
+
+#### Test locally
+```powershell
+$env:PYTHONPATH="c:\path\to\synapsesync"
+.\\venv\\Scripts\\python.exe -m backend.renew_gmail_watches
+```
+
+
 
 ### Step 5: Activate Per-User Pipeline
 After deployment:

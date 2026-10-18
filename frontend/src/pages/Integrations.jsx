@@ -4,6 +4,9 @@
  * Fixes:
  * - M6:  All alert() calls replaced with inline toast notifications (no blocking dialogs)
  * - M5:  discord_webhook field changed to a boolean (backend now returns is_discord_connected)
+ * - P1:  Removed beta-access tester-only banner and email-request flow.
+ *        Any registered user can connect Gmail directly.
+ * - P2:  Removed 6-day reconnect warning — tokens are now kept alive automatically.
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
@@ -14,7 +17,6 @@ import {
   getUserSettings, getGoogleConnectUrl, saveDiscordWebhook, updateUserSettings,
 } from '../api/client';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { openMail } from '../utils/mailHelper';
 
 // ── Inline Toast ──────────────────────────────────────────────────────────────
 const Toast = ({ message, type = 'success', onDismiss }) => (
@@ -124,25 +126,6 @@ const Integrations = () => {
     setDiscordWebhook('');
   };
 
-  const handleRequestAccess = (e) => {
-    if (e) e.preventDefault();
-    openMail({
-      to: 'nitishsaini044@gmail.com',
-      subject: 'SynapseSync Beta Access Request',
-      body: `Hello Nitish,
-
-I would like to request access to the SynapseSync beta.
-
-Please add the following email address to the approved testing list so I can connect my Gmail account:
-
-Email:
-
-Thank you for your time and support.
-
-Best regards`,
-    });
-  };
-
   const handleToggleAutomation = async () => {
     try {
       setTogglingAutomation(true);
@@ -220,17 +203,6 @@ Best regards`,
                 >
                   {connecting ? 'Connecting...' : 'Connect Gmail Account'}
                 </button>
-                <div className="bg-primary/5 rounded-lg p-3 text-xs text-muted border border-primary/10">
-                  <span className="font-semibold text-primary">Beta Access:</span>{' '}
-                  If you aren't on the approved test list, connecting will fail.
-                  <a
-                    href="#"
-                    onClick={handleRequestAccess}
-                    className="block mt-1.5 text-primary hover:underline font-medium"
-                  >
-                        Request access via email &rarr;
-                  </a>
-                </div>
               </div>
             )}
           </div>

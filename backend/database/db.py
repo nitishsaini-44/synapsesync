@@ -222,9 +222,12 @@ def update_google_tokens(
 ) -> dict | None:
     """
     Saves or clears Google OAuth tokens for a user.
-    - When google_refresh_token is provided: sets google_connected_at = NOW()
-      so we can track the 6-day reconnect window.
-    - When google_refresh_token is None (disconnect): clears google_connected_at.
+    - When google_refresh_token is provided: sets google_connected_at = NOW().
+    - When google_refresh_token is None (explicit disconnect): clears google_connected_at.
+
+    NOTE: Never call this with google_refresh_token=None to "preserve" a token —
+    that will clear the token.  Pass the existing encrypted token explicitly when
+    you want to preserve it (e.g., when Google omits refresh_token on re-auth).
     """
     conn = None
     try:
@@ -247,14 +250,48 @@ def update_google_tokens(
                     """
                     UPDATE users
                     SET google_email          = %s,
-                        google_refresh_token  = %s,
+                        google_refresh_token  = NULL,
                         google_connected_at   = NULL
                     WHERE id = %s
                     RETURNING *
                     """,
-                    (google_email, google_refresh_token, user_id),
+                    (google_email, user_id),
                 )
 
+            updated = cur.fetchone()
+            conn.commit()
+            return updated
+    except Exception:
+        if conn:
+            conn.rollback()
+        raise
+    finally:
+        release_connection(conn)
+
+
+def mark_gmail_needs_reauth(user_id: int) -> dict | None:
+    """
+    Clears the Google refresh token and disables automation for a user whose
+    refresh token has been permanently revoked by Google.
+
+    Call ONLY on a confirmed permanent auth failure (e.g. HTTP 400 with
+    error=invalid_grant).  Do NOT call on transient network errors.
+    """
+    conn = None
+    try:
+        conn = get_connection()
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                UPDATE users
+                SET google_refresh_token = NULL,
+                    google_connected_at  = NULL,
+                    automation_enabled   = FALSE
+                WHERE id = %s
+                RETURNING *
+                """,
+                (user_id,),
+            )
             updated = cur.fetchone()
             conn.commit()
             return updated
@@ -424,6 +461,32 @@ def get_active_users() -> list[dict]:
             cur.execute(
                 """
                 SELECT id, google_refresh_token, discord_webhook, last_message_id
+                FROM users
+                WHERE automation_enabled = TRUE
+                  AND google_refresh_token IS NOT NULL
+                """
+            )
+            result = cur.fetchall()
+        conn.commit()
+        return result
+    finally:
+        release_connection(conn)
+
+
+def get_users_for_watch_renewal() -> list[dict]:
+    """
+    Returns all users who have automation enabled AND a stored Google refresh
+    token.  Used by the daily Gmail watch-renewal cron job.
+
+    Only id and google_refresh_token are returned — no other PII.
+    """
+    conn = None
+    try:
+        conn = get_connection()
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT id, google_email, google_refresh_token
                 FROM users
                 WHERE automation_enabled = TRUE
                   AND google_refresh_token IS NOT NULL
